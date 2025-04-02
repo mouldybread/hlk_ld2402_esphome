@@ -54,13 +54,17 @@ hlk_ld2402:
 
 # Binary sensors - only essential ones
 binary_sensor:
-  # Presence detection - shows if someone is present in the detection area
+  # Presence detection - shows if a person is detected
   - platform: hlk_ld2402
-    id: radar_presence
-    name: "Presence"
+    name: "Radar Presence"
+    presence: true
+    device_class: presence
+  # Motion detection - shows if motion is detected
+  - platform: hlk_ld2402
+    name: "Motion"
+    motion: true
     device_class: presence
     hlk_ld2402_id: radar_sensor
-
   
   # Power interference detection - shows if power supply is causing interference
   - platform: hlk_ld2402

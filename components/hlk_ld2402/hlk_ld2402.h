@@ -78,7 +78,7 @@ public:
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_distance_throttle(uint32_t throttle_ms) { distance_throttle_ms_ = throttle_ms; }
   void set_presence_binary_sensor(binary_sensor::BinarySensor *presence) { presence_binary_sensor_ = presence; }
-    // Removed: set_micromovement_binary_sensor method
+  void set_motion_binary_sensor(binary_sensor::BinarySensor *motion) { motion_binary_sensor_ = motion; }
   void set_power_interference_binary_sensor(binary_sensor::BinarySensor *power_interference) { power_interference_binary_sensor_ = power_interference; }
   void set_max_distance(float max_distance) { max_distance_ = max_distance; }
   void set_timeout(uint32_t timeout) { timeout_ = timeout; }
@@ -214,7 +214,7 @@ private:
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *calibration_progress_sensor_{nullptr};
   binary_sensor::BinarySensor *presence_binary_sensor_{nullptr};
-  // Removed: micromovement_binary_sensor_ member variable
+  binary_sensor::BinarySensor *motion_binary_sensor_{nullptr};
   binary_sensor::BinarySensor *power_interference_binary_sensor_{nullptr};
   
   text_sensor::TextSensor *firmware_version_text_sensor_{nullptr};

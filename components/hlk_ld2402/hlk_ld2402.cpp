@@ -729,49 +729,28 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   
   // If we found a valid distance
   if (min_distance_cm > 0) {
-    // Original detection status from index 7
-    uint8_t detection_status = 0;
-    if (frame_data.size() >= 8) {
-      detection_status = frame_data[7]; 
+    // Position 6 contains the presence indicator - 0x00 means no presence,
+    // non-zero values indicate presence detected
+    uint8_t detection_status = (frame_data.size() > 6) ? frame_data[6] : 0;
+    
+    // Get byte 7 value for motion detection (if available)
+    uint8_t motion_value = (frame_data.size() > 7) ? frame_data[7] : 0;
+    
+    // Log all values for debugging
+    if (frame_data.size() > 9) {
+      ESP_LOGI(TAG, "Frame bytes 5-9: %02X %02X %02X %02X %02X (byte 6 = status: %s, byte 7 = %u)",
+               frame_data[5], frame_data[6], frame_data[7], frame_data[8], frame_data[9],
+               detection_status == 0 ? "no presence" : "presence", motion_value);
     }
     
-    // Let's also try alternative positions for debugging
-    uint8_t alt_status_1 = (frame_data.size() >= 9) ? frame_data[8] : 0;
-    uint8_t alt_status_2 = (frame_data.size() >= 10) ? frame_data[9] : 0;
-    
-    ESP_LOGI(TAG, "DETECTION STATUS COMPARISON:");
-    ESP_LOGI(TAG, "- Using byte 7: %u (%s)", 
-             detection_status,
-             detection_status == 0 ? "no person" : 
-             detection_status == 1 ? "person moving" : 
-             detection_status == 2 ? "stationary person" : "unknown");
-    ESP_LOGI(TAG, "- Using byte 8: %u (%s)", 
-             alt_status_1,
-             alt_status_1 == 0 ? "no person" : 
-             alt_status_1 == 1 ? "person moving" : 
-             alt_status_1 == 2 ? "stationary person" : "unknown");
-    ESP_LOGI(TAG, "- Using byte 9: %u (%s)", 
-             alt_status_2,
-             alt_status_2 == 0 ? "no person" : 
-             alt_status_2 == 1 ? "person moving" : 
-             alt_status_2 == 2 ? "stationary person" : "unknown");
-    
-    // Perhaps trying different bytes as the detection status
-    // Let's try byte 8 (index 8) instead of byte 7 (index 7) for the detection status
-    // Uncomment this to test with a different byte position:
-    // detection_status = alt_status_1;
-    
-    // Always update binary sensors (no throttling needed) - pass detection status
+    // Update presence binary sensor
     update_binary_sensors_(min_distance_cm, detection_status);
     
-    // Define the status_text variable based on detection_status
-    const char* status_text = "unknown";
-    if (detection_status == 0) {
-      status_text = "no person";
-    } else if (detection_status == 1) {
-      status_text = "person moving";
-    } else if (detection_status == 2) {
-      status_text = "stationary person";
+    // Update motion binary sensor based on byte 7 value
+    if (this->motion_binary_sensor_ != nullptr) {
+      bool is_motion = (motion_value > 100);
+      this->motion_binary_sensor_->publish_state(is_motion);
+      ESP_LOGI(TAG, "Motion detection: %s (byte 7 value: %u)", is_motion ? "ACTIVE" : "INACTIVE", motion_value);
     }
     
     // For distance sensor, check throttling
@@ -989,18 +968,19 @@ bool HLKLD2402Component::process_engineering_data_(const std::vector<uint8_t> &f
 void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detection_status) {
   // Update presence based on detection status
   if (this->presence_binary_sensor_ != nullptr) {
-    // Detection status: 0=no person, 1=person moving, 2=stationary person
+    // The byte at position 6 in the frame indicates presence:
+    // - Value 0x00: No presence detected
+    // - Non-zero values: Presence detected
     bool is_presence = (detection_status > 0);
     
     // Log before updating to ensure we see what's happening
-    ESP_LOGI(TAG, "Updating presence sensor to %s (status code %u) at distance %.1f cm", 
+    ESP_LOGI(TAG, "Updating presence sensor to %s (status code 0x%02X) at distance %.1f cm", 
              is_presence ? "ON" : "OFF", detection_status, distance_cm);
     
     this->presence_binary_sensor_->publish_state(is_presence);
     
     if (is_presence) {
-      const char* status_text = (detection_status == 1) ? "moving person" : "stationary person";
-      ESP_LOGI(TAG, "Presence detected: %s at %.1f cm", status_text, distance_cm);
+      ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
     } else {
       ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
     }

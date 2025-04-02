@@ -45,8 +45,13 @@ binary_sensor:
     name: "Presence"
     device_class: presence
     hlk_ld2402_id: radar_sensor
-
   
+  - platform: hlk_ld2402
+    name: "Motion"
+    motion: true
+    device_class: presence
+    hlk_ld2402_id: radar_sensor
+
   - platform: hlk_ld2402
     id: radar_power_interference
     name: "Radar Power Interference"

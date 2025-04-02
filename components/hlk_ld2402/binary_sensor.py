@@ -15,6 +15,7 @@ DEPENDENCIES = ["hlk_ld2402"]
 # Add missing configuration options
 CONF_POWER_INTERFERENCE = "power_interference"
 CONF_PRESENCE = "presence"
+CONF_MOTION = "motion"  # Add new motion config option
 
 CONFIG_SCHEMA = binary_sensor.binary_sensor_schema().extend({
     cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
@@ -22,6 +23,7 @@ CONFIG_SCHEMA = binary_sensor.binary_sensor_schema().extend({
     cv.Optional(CONF_DEVICE_CLASS): cv.one_of(DEVICE_CLASS_PRESENCE, DEVICE_CLASS_MOTION, DEVICE_CLASS_PROBLEM),
     cv.Optional(CONF_POWER_INTERFERENCE): cv.boolean,
     cv.Optional(CONF_PRESENCE): cv.boolean,
+    cv.Optional(CONF_MOTION): cv.boolean,  # Add new motion option
 })
 
 async def to_code(config):
@@ -32,12 +34,14 @@ async def to_code(config):
         cg.add(parent.set_power_interference_binary_sensor(var))
     elif CONF_PRESENCE in config and config[CONF_PRESENCE]:
         cg.add(parent.set_presence_binary_sensor(var))
+    elif CONF_MOTION in config and config[CONF_MOTION]:
+        cg.add(parent.set_motion_binary_sensor(var))
     elif CONF_DEVICE_CLASS in config:
         if config[CONF_DEVICE_CLASS] == DEVICE_CLASS_PROBLEM:
             cg.add(parent.set_power_interference_binary_sensor(var))
         elif config[CONF_DEVICE_CLASS] == DEVICE_CLASS_PRESENCE:
             cg.add(parent.set_presence_binary_sensor(var))
         elif config[CONF_DEVICE_CLASS] == DEVICE_CLASS_MOTION:
-            cg.add(parent.set_presence_binary_sensor(var))
+            cg.add(parent.set_motion_binary_sensor(var))
     else:
         cg.add(parent.set_presence_binary_sensor(var))
