@@ -61,12 +61,6 @@ binary_sensor:
     device_class: presence
     hlk_ld2402_id: radar_sensor
 
-  # Micromovement detection - shows if small movements are detected
-  - platform: hlk_ld2402
-    id: radar_micromovement
-    name: "Micromovement"
-    device_class: motion
-    hlk_ld2402_id: radar_sensor
   
   # Power interference detection - shows if power supply is causing interference
   - platform: hlk_ld2402

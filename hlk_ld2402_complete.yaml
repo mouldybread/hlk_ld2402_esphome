@@ -46,11 +46,6 @@ binary_sensor:
     device_class: presence
     hlk_ld2402_id: radar_sensor
 
-  - platform: hlk_ld2402
-    id: radar_micromovement
-    name: "Micromovement"
-    device_class: motion
-    hlk_ld2402_id: radar_sensor
   
   - platform: hlk_ld2402
     id: radar_power_interference

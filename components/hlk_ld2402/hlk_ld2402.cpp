@@ -924,11 +924,6 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm) {
     bool is_presence = distance_cm <= (STATIC_RANGE * 100);
     this->presence_binary_sensor_->publish_state(is_presence);
   }
-  
-  if (this->micromovement_binary_sensor_ != nullptr) {
-    bool is_micro = distance_cm <= (MICROMOVEMENT_RANGE * 100);
-    this->micromovement_binary_sensor_->publish_state(is_micro);
-  }
 }
 
 // Replace the damaged process_line_ method
@@ -940,9 +935,6 @@ void HLKLD2402Component::process_line_(const std::string &line) {
     ESP_LOGI(TAG, "No target detected");
     if (this->presence_binary_sensor_ != nullptr) {
       this->presence_binary_sensor_->publish_state(false);
-    }
-    if (this->micromovement_binary_sensor_ != nullptr) {
-      this->micromovement_binary_sensor_->publish_state(false);
     }
     
     // Only update the distance sensor if not throttled
