@@ -58,12 +58,14 @@ binary_sensor:
   - platform: hlk_ld2402
     name: "Radar Presence"
     presence: true
-    device_class: presence
+    device_class: motion
+    hlk_ld2402_id: radar_sensor  # Add missing reference to component
+  
   # Motion detection - shows if motion is detected
   - platform: hlk_ld2402
     name: "Motion"
     motion: true
-    device_class: presence
+    device_class: motion  # Change to motion device class for consistency
     hlk_ld2402_id: radar_sensor
   
   # Power interference detection - shows if power supply is causing interference

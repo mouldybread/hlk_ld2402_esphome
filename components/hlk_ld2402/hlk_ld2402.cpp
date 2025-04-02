@@ -987,6 +987,10 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     // - Non-zero values: Presence detected
     bool is_presence = (detection_status > 0);
     
+    // IMPORTANT DEBUG: Log the raw byte value in hex to confirm what's being received
+    ESP_LOGI(TAG, "PRESENCE DETECTION: Raw status code: 0x%02X (%d decimal) at %.1f cm", 
+             detection_status, detection_status, distance_cm);
+    
     // Log before updating to ensure we see what's happening
     ESP_LOGI(TAG, "Updating presence sensor to %s (status code 0x%02X) at distance %.1f cm", 
              is_presence ? "ON" : "OFF", detection_status, distance_cm);
