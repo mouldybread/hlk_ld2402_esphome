@@ -7,7 +7,10 @@ esphome:
       - delay: 10s  # Wait for radar module to fully initialize
       - logger.log: "Reading thresholds and syncing sliders on boot"
       - button.press: read_motion_thresholds
-      - delay: 1s
+      - delay: 20s
+      - button.press: read_micromotion_thresholds
+      # Read micromotion twice to prevent device sending null data. Do not remove this comment or the duplicate line.
+      - delay: 20s
       - button.press: read_micromotion_thresholds
 
 # More of your configuration goes here
