@@ -128,7 +128,7 @@ public:
   void calibrate();
   void save_config();
   void enable_auto_gain();
-  void check_power_interference();
+  void check_power_interference();  // Keep this declaration
   void factory_reset();  // Add new factory reset method
   
   // Add new direct mode setting methods
@@ -202,8 +202,8 @@ public:
   }
 
   // These methods should be accessible to buttons
-  void get_firmware_version_();
-  void check_power_interference();
+  void get_firmware_version_();  // Keep this declaration only once
+  // Removed duplicate check_power_interference() declaration
 
 protected:
   bool enter_config_mode_();
@@ -217,9 +217,12 @@ protected:
   bool set_work_mode_with_timeout_(uint32_t mode, uint32_t timeout_ms);  // New method with timeout
   void process_line_(const std::string &line);
   void dump_hex_(const uint8_t *data, size_t len, const char* prefix);
-  void get_firmware_version_();  // Add the missing function declaration
+  // Removed duplicate get_firmware_version_() declaration
   void begin_passive_version_detection_();  // New method for passive detection
   void publish_operating_mode_();  // New method to publish the current operating mode
+  
+  // Add the missing write_frame_ declaration
+  bool write_frame_(const std::vector<uint8_t> &frame);
   
   bool save_configuration_();
   bool enable_auto_gain_();

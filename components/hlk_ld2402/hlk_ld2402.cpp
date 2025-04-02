@@ -62,10 +62,11 @@ void HLKLD2402Component::setup() {
   // The logs show the device is already sending data correctly
   // Skip configuration and just set up sensors
   ESP_LOGI(TAG, "LD2402 appears to be sending data already. Skipping additional configuration.");
-  ESP_LOGI(TAG, "Use the Engineering Mode button if you need to modify settings.");
+  ESP_LOGI(TAG, "Use the buttons to manually check firmware version or power interference.");
   
   // Don't check power interference immediately - use a delayed operation
-  ESP_LOGI(TAG, "Will check firmware version after 20 seconds");
+  // Remove the warning about delayed checks since we won't do them automatically
+  // ESP_LOGI(TAG, "Will check firmware version after 20 seconds");
   
   // Remove the immediate firmware version check - it will happen after 60 seconds
   // get_firmware_version_();
@@ -183,21 +184,11 @@ void HLKLD2402Component::loop() {
   static uint32_t byte_count = 0;
   static uint8_t last_bytes[16] = {0};
   static size_t last_byte_pos = 0;
-  static bool firmware_check_done = false;
   static uint32_t startup_time = millis();
   static uint32_t last_eng_debug_time = 0;
   static uint32_t eng_mode_start_time = 0;
   static uint32_t last_eng_retry_time = 0;
   static uint8_t eng_retry_count = 0;
-  static uint32_t firmware_check_time = 0;  // New variable to track when firmware check completes
-  
-  // Firmware version check earlier at 20 seconds to avoid conflict with power check
-  if (!firmware_check_done && (millis() - startup_time) > 20000) {
-    ESP_LOGI(TAG, "Performing firmware version check...");
-    get_firmware_version_();
-    firmware_check_done = true;
-    firmware_check_time = millis();  // Record when firmware check completes
-  }
   
   // Add periodic debug message - reduce frequency
   if (millis() - last_debug_time > 30000) {  // Every 30 seconds
