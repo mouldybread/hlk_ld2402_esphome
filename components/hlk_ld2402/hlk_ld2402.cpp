@@ -75,21 +75,12 @@ void HLKLD2402Component::setup() {
     firmware_version_text_sensor_->publish_state("HLK-LD2402");
   }
   
-  // Start passive version detection immediately
-  begin_passive_version_detection_();
-  
   // Set initial operating mode text
   operating_mode_ = "Normal";
   publish_operating_mode_();
   
   // Initialize the throttle timestamp to avoid updates right after boot
   last_distance_update_ = millis();
-}
-
-// New function to passively monitor output for version info
-void HLKLD2402Component::begin_passive_version_detection_() {
-  ESP_LOGI(TAG, "Starting passive version detection");
-  firmware_version_ = "HLK-LD2402"; // Default fallback version
 }
 
 // Add method to publish operating mode
@@ -476,49 +467,6 @@ void HLKLD2402Component::loop() {
       } else {
         ESP_LOGW(TAG, "Line buffer overflow, clearing");
         line_buffer_.clear();
-      }
-    }
-    
-    // Additional processing in loop to passively detect version info
-    // from normal operation output, even after initial check
-    if (!firmware_version_.empty() && firmware_version_ != "Unknown" && 
-        firmware_version_.find("HLK-LD2402") == 0 && 
-        firmware_version_.find("v") == std::string::npos) {
-      
-      // We only have model info, still looking for version number
-      if (c == '\n' && !line_buffer_.empty()) {
-        if (line_buffer_.find("v") != std::string::npos || 
-            line_buffer_.find("V") != std::string::npos ||
-            line_buffer_.find("version") != std::string::npos ||
-            line_buffer_.find("Version") != std::string::npos) {
-          
-          ESP_LOGI(TAG, "Found potential version info: %s", line_buffer_.c_str());
-          // Extract version information
-          std::string version = "HLK-LD2402";
-          
-          // Try to find version number pattern
-          for (size_t i = 0; i < line_buffer_.length(); i++) {
-            if ((i+2 < line_buffer_.length() && 
-                isdigit(line_buffer_[i]) && 
-                line_buffer_[i+1] == '.' && 
-                isdigit(line_buffer_[i+2])) ||
-                (line_buffer_[i] == 'v' || line_buffer_[i] == 'V')) {
-              
-              size_t start_pos = line_buffer_[i] == 'v' || line_buffer_[i] == 'V' ? i+1 : i;
-              size_t end_pos = line_buffer_.find_first_not_of("0123456789.", start_pos);
-              if (end_pos == std::string::npos) end_pos = line_buffer_.length();
-              
-              version = "v" + line_buffer_.substr(start_pos, end_pos - start_pos);
-              firmware_version_ = version;
-              
-              if (firmware_version_text_sensor_ != nullptr) {
-                firmware_version_text_sensor_->publish_state(version);
-                ESP_LOGI(TAG, "Updated firmware version from passive detection: %s", version.c_str());
-              }
-              break;
-            }
-          }
-        }
       }
     }
   }
