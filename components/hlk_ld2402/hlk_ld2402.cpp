@@ -2208,8 +2208,12 @@ bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16
     return false;
   }
   
-  // Send all parameter commands in succession
+  // Send all parameter commands in rapid succession without waiting for responses
+  ESP_LOGI(TAG, "Sending %d parameter commands in rapid succession", params.size());
+  
+  std::vector<std::pair<uint16_t, uint32_t>> sent_params;
   int success_count = 0;
+  
   for (const auto &param : params) {
     uint16_t param_id = param.first;
     uint32_t value = param.second;
@@ -2223,25 +2227,63 @@ bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16
     data[4] = (value >> 16) & 0xFF;
     data[5] = (value >> 24) & 0xFF;
     
-    ESP_LOGI(TAG, "Setting parameter 0x%04X to %u", param_id, value);
+    ESP_LOGI(TAG, "Sending parameter 0x%04X = %u", param_id, value);
     
-    // Send command with minimal delay between commands
-    if (send_command_(CMD_SET_PARAMS, data, sizeof(data))) {
-      success_count++;
-      
-      // Just a minimal delay between commands
-      delay(50);
-      
-      // Clear any response data without waiting for it
-      flush();
-      while (available()) {
-        uint8_t c;
-        read_byte(&c);
-      }
+    // Send command without waiting for response
+    std::vector<uint8_t> frame;
+    
+    // Header
+    frame.insert(frame.end(), FRAME_HEADER, FRAME_HEADER + 4);
+    
+    // Length (2 bytes) - command (2 bytes) + data length
+    uint16_t total_len = 2 + sizeof(data);  // 2 for command, plus data length
+    frame.push_back(total_len & 0xFF);
+    frame.push_back((total_len >> 8) & 0xFF);
+    
+    // Command (2 bytes, little endian)
+    frame.push_back(CMD_SET_PARAMS & 0xFF);
+    frame.push_back((CMD_SET_PARAMS >> 8) & 0xFF);
+    
+    // Parameter data
+    frame.insert(frame.end(), data, data + sizeof(data));
+    
+    // Footer
+    frame.insert(frame.end(), FRAME_FOOTER, FRAME_FOOTER + 4);
+    
+    // Write directly without waiting for response
+    size_t written = 0;
+    size_t to_write = frame.size();
+    write_array(frame.data(), to_write);
+    
+    // Track sent parameter for logging
+    sent_params.push_back(param);
+    success_count++;
+    
+    // Mini delay between commands - just enough to avoid buffer overflows
+    delay(5);
+  }
+  
+  // Small pause to allow module to process all commands
+  delay(50);
+  
+  // Now read all the responses without requiring them to match up exactly
+  ESP_LOGI(TAG, "Reading responses for %d commands", success_count);
+  
+  // We only need to confirm we received the expected number of responses
+  int response_count = 0;
+  uint32_t start_time = millis();
+  
+  while (response_count < success_count && (millis() - start_time) < 2000) {
+    std::vector<uint8_t> response;
+    if (read_response_(response, 100)) {
+      response_count++;
+      ESP_LOGD(TAG, "Got response %d of %d", response_count, success_count);
     } else {
-      ESP_LOGW(TAG, "Failed to send parameter 0x%04X", param_id);
+      break; // No more responses available
     }
   }
+  
+  ESP_LOGI(TAG, "Received %d responses out of %d expected", response_count, success_count);
   
   // Save configuration after setting all parameters
   bool save_success = save_configuration_();
@@ -2254,8 +2296,8 @@ bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16
   // Exit config mode
   exit_config_mode_();
   
-  // Return success if at least some parameters were set
-  return (success_count > 0);
+  // Return success if we got most of the responses we expected
+  return (response_count >= success_count * 0.8);
 }
 
 // Add a new method for batch parameter reading
