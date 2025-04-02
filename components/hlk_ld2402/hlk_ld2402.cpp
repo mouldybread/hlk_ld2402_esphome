@@ -774,6 +774,11 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
       status_text = "stationary person";
     }
     
+    // For distance sensor, check throttling
+    uint32_t now = millis(); // Add this line to get current time
+    bool throttled = (this->distance_sensor_ != nullptr && 
+                     now - last_distance_update_ < distance_throttle_ms_);
+    
     // Only update distance sensor if not throttled
     if (!throttled && this->distance_sensor_ != nullptr) {
       static float last_reported_distance = 0;
