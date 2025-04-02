@@ -5,41 +5,34 @@ namespace esphome {
 namespace hlk_ld2402 {
 
 void HLKLD2402Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402...");
+  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 in passive mode...");
   
-  // Configure UART - explicitly set again
+  // Configure UART - explicitly set parameters but don't send any commands
   auto *parent = (uart::UARTComponent *) this->parent_;
   parent->set_baud_rate(115200);
   parent->set_stop_bits(1);
   parent->set_data_bits(8);
   parent->set_parity(esphome::uart::UART_CONFIG_PARITY_NONE);
 
-  // Flush any residual data
-  ESP_LOGI(TAG, "Flushing UART");
+  // Clear any existing data to ensure we start with a clean buffer
   flush();
-  delay(100);
-  while (available()) {
-    uint8_t c;
-    read_byte(&c);
-  }
-
-  // Initialize but don't touch the device if we don't need to
-  // The logs show the device is already sending data correctly
-  // Skip configuration and just set up sensors
-  ESP_LOGI(TAG, "LD2402 appears to be sending data already. Skipping additional configuration.");
-  ESP_LOGI(TAG, "Use the buttons to manually check firmware version or power interference.");
-  
-  // Set a default version - this will be displayed until we can determine the actual version
-  if (firmware_version_text_sensor_ != nullptr) {
-    firmware_version_text_sensor_->publish_state("HLK-LD2402");
-  }
   
   // Set initial operating mode text
   operating_mode_ = "Normal";
+  
+  // Initialize sensors with default values
+  if (firmware_version_text_sensor_ != nullptr) {
+    firmware_version_text_sensor_->publish_state("Unknown - Will detect on data");
+  }
+  
+  // Publish initial operating mode
   publish_operating_mode_();
   
-  // Initialize the throttle timestamp to avoid updates right after boot
+  // Initialize timestamps to avoid updates right after boot
   last_distance_update_ = millis();
+  
+  ESP_LOGI(TAG, "HLK-LD2402 initialized in passive mode - will only read data packets");
+  ESP_LOGI(TAG, "Use buttons to trigger specific actions like mode changes or configuration");
 }
 
 // Add method to publish operating mode
