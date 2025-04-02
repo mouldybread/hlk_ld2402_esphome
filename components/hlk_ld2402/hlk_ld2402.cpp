@@ -650,12 +650,44 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     return false;
   }
 
-  // Dump entire frame for debugging at INFO level
-  char hex_buf[128] = {0};
+  // Enhanced frame debugging with clear annotation of each byte's position
+  ESP_LOGI(TAG, "===== RADAR FRAME ANALYSIS =====");
+  ESP_LOGI(TAG, "Frame size: %d bytes", frame_data.size());
+  ESP_LOGI(TAG, "Expected format: [F4 F3 F2 F1][83][LEN-L][LEN-H][STATUS][DATA...]");
+  
+  // Output bytes with indices for easier analysis
+  char hex_buf[256] = {0};
+  char index_buf[256] = {0};
+  
+  // Generate index markers
+  for (size_t i = 0; i < std::min(frame_data.size(), size_t(30)); i++) {
+    sprintf(index_buf + (i*3), "%2d ", (int)i);
+  }
+  ESP_LOGI(TAG, "Byte idx: %s", index_buf);
+  
+  // Generate hex values
   for (size_t i = 0; i < std::min(frame_data.size(), size_t(30)); i++) {
     sprintf(hex_buf + (i*3), "%02X ", frame_data[i]);
   }
-  ESP_LOGI(TAG, "Distance frame raw data: %s", hex_buf);
+  ESP_LOGI(TAG, "Hex data: %s", hex_buf);
+  
+  // Annotate specific bytes with their meanings
+  ESP_LOGI(TAG, "Interpretation:");
+  ESP_LOGI(TAG, "- Bytes 0-3: Header = %02X %02X %02X %02X (should be F4 F3 F2 F1)", 
+           frame_data[0], frame_data[1], frame_data[2], frame_data[3]);
+  ESP_LOGI(TAG, "- Byte  4: Type = %02X (83 = distance frame)", 
+           frame_data[4]);
+  ESP_LOGI(TAG, "- Bytes 5-6: Length = %02X %02X (%d bytes)", 
+           frame_data[5], frame_data[6], frame_data[5] | (frame_data[6] << 8));
+  
+  // Let's check EVERY possible detection status byte position from 7-10
+  for (int i = 7; i < std::min(size_t(11), frame_data.size()); i++) {
+    ESP_LOGI(TAG, "- Byte %2d: Value = %02X (if status byte: %s)", 
+             i, frame_data[i],
+             frame_data[i] == 0 ? "no person" : 
+             frame_data[i] == 1 ? "person moving" : 
+             frame_data[i] == 2 ? "stationary person" : "unknown");
+  }
   
   // Parse the data length from the frame
   uint16_t data_length = frame_data[5] | (frame_data[6] << 8);
@@ -686,7 +718,7 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
         min_distance_cm = distance;
       }
       
-      ESP_LOGV(TAG, "Distance value at pos %d: %.1f cm", i, distance);
+      ESP_LOGI(TAG, "Distance value at pos %d: %.1f cm (raw: %u)", i, distance, value);
       
       // Find just one valid value, then break
       if (min_distance_cm > 0) {
@@ -697,33 +729,37 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   
   // If we found a valid distance
   if (min_distance_cm > 0) {
-    // According to the documentation: detection status is the 7th byte (index 6)
+    // Original detection status from index 7
     uint8_t detection_status = 0;
-
-    // IMPORTANT: The frame structure per documentation is:
-    // F4 F3 F2 F1 (header, 4 bytes)
-    // 83 (type, 1 byte)
-    // 00 (length LSB, 1 byte)
-    // 01 (length MSB, 1 byte)
-    // XX (detection status, 1 byte) <-- This is what we want, at index 7
     if (frame_data.size() >= 8) {
-      detection_status = frame_data[7];  // Changed from index 6 to 7 (zero-based)
-      
-      // Log at INFO level to make sure it shows up in logs
-      ESP_LOGI(TAG, "Detection status byte [index 7]: 0x%02X (%u) - %s", 
-               detection_status, detection_status,
-               detection_status == 0 ? "no person" : 
-               detection_status == 1 ? "person moving" : 
-               detection_status == 2 ? "stationary person" : "unknown");
+      detection_status = frame_data[7]; 
     }
     
-    // Log with more detailed status information
-    const char* status_text = "unknown";
-    switch(detection_status) {
-      case 0: status_text = "no person"; break;
-      case 1: status_text = "person"; break;
-      case 2: status_text = "stationary person"; break;
-    }
+    // Let's also try alternative positions for debugging
+    uint8_t alt_status_1 = (frame_data.size() >= 9) ? frame_data[8] : 0;
+    uint8_t alt_status_2 = (frame_data.size() >= 10) ? frame_data[9] : 0;
+    
+    ESP_LOGI(TAG, "DETECTION STATUS COMPARISON:");
+    ESP_LOGI(TAG, "- Using byte 7: %u (%s)", 
+             detection_status,
+             detection_status == 0 ? "no person" : 
+             detection_status == 1 ? "person moving" : 
+             detection_status == 2 ? "stationary person" : "unknown");
+    ESP_LOGI(TAG, "- Using byte 8: %u (%s)", 
+             alt_status_1,
+             alt_status_1 == 0 ? "no person" : 
+             alt_status_1 == 1 ? "person moving" : 
+             alt_status_1 == 2 ? "stationary person" : "unknown");
+    ESP_LOGI(TAG, "- Using byte 9: %u (%s)", 
+             alt_status_2,
+             alt_status_2 == 0 ? "no person" : 
+             alt_status_2 == 1 ? "person moving" : 
+             alt_status_2 == 2 ? "stationary person" : "unknown");
+    
+    // Perhaps trying different bytes as the detection status
+    // Let's try byte 8 (index 8) instead of byte 7 (index 7) for the detection status
+    // Uncomment this to test with a different byte position:
+    // detection_status = alt_status_1;
     
     // Always update binary sensors (no throttling needed) - pass detection status
     update_binary_sensors_(min_distance_cm, detection_status);
