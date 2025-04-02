@@ -764,10 +764,15 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     // Always update binary sensors (no throttling needed) - pass detection status
     update_binary_sensors_(min_distance_cm, detection_status);
     
-    // For distance sensor, check throttling
-    uint32_t now = millis();
-    bool throttled = (this->distance_sensor_ != nullptr && 
-                     now - last_distance_update_ < distance_throttle_ms_);
+    // Define the status_text variable based on detection_status
+    const char* status_text = "unknown";
+    if (detection_status == 0) {
+      status_text = "no person";
+    } else if (detection_status == 1) {
+      status_text = "person moving";
+    } else if (detection_status == 2) {
+      status_text = "stationary person";
+    }
     
     // Only update distance sensor if not throttled
     if (!throttled && this->distance_sensor_ != nullptr) {
