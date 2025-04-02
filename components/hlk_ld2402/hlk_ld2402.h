@@ -154,7 +154,10 @@ public:
   
   // Service for setting micromotion threshold for a specific gate
   void set_gate_micromotion_threshold(int gate, float db_value) {
-    set_micromotion_threshold(gate, db_value);
+    // Create a map with a single entry to call the plural version
+    std::map<uint8_t, float> thresholds;
+    thresholds[gate] = db_value;
+    set_micromotion_thresholds(thresholds);
   }
 
   // Add new method declarations for batch parameter operations
