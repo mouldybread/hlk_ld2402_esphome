@@ -44,7 +44,7 @@ binary_sensor:
     id: radar_presence
     name: "Presence"
     presence: true  # Add explicit presence setting
-    device_class: presence
+    device_class: motion
     hlk_ld2402_id: radar_sensor
   
   - platform: hlk_ld2402
