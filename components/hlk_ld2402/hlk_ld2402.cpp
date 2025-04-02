@@ -5,9 +5,9 @@ namespace esphome {
 namespace hlk_ld2402 {
 
 void HLKLD2402Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 in passive mode...");
+  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402...");
   
-  // Configure UART - explicitly set parameters but don't send any commands
+  // Configure UART - explicitly set parameters
   auto *parent = (uart::UARTComponent *) this->parent_;
   parent->set_baud_rate(115200);
   parent->set_stop_bits(1);
@@ -16,6 +16,10 @@ void HLKLD2402Component::setup() {
 
   // Clear any existing data to ensure we start with a clean buffer
   flush();
+  while (available()) {
+    uint8_t c;
+    read_byte(&c);
+  }
   
   // Set initial operating mode text
   operating_mode_ = "Normal";
@@ -31,7 +35,36 @@ void HLKLD2402Component::setup() {
   // Initialize timestamps to avoid updates right after boot
   last_distance_update_ = millis();
   
-  ESP_LOGI(TAG, "HLK-LD2402 initialized in passive mode - will only read data packets");
+  // IMPORTANT: Configure device for binary frame mode
+  ESP_LOGI(TAG, "Configuring device for binary frame mode (needed for reliable detection)");
+  
+  // Enter config mode once
+  if (enter_config_mode_()) {
+    // Configure binary frame output mode with command 0x0012
+    uint8_t mode_data[6] = {0x00, 0x00, 0x04, 0x00, 0x00, 0x00}; // Engineering mode (0x00000004)
+    
+    if (send_command_(CMD_SET_MODE, mode_data, sizeof(mode_data))) {
+      ESP_LOGI(TAG, "Successfully configured binary frame mode");
+      operating_mode_ = "Engineering";
+      engineering_data_enabled_ = true;
+    } else {
+      ESP_LOGW(TAG, "Failed to configure binary frame mode - detection reliability may be reduced");
+    }
+    
+    // Exit config mode
+    exit_config_mode_();
+    
+    // Clear any remaining data
+    flush();
+    while (available()) {
+      uint8_t c;
+      read_byte(&c);
+    }
+  } else {
+    ESP_LOGW(TAG, "Failed to enter config mode - detection reliability may be reduced");
+  }
+  
+  ESP_LOGI(TAG, "HLK-LD2402 initialized - will passively read data packets from now on");
   ESP_LOGI(TAG, "Use buttons to trigger specific actions like mode changes or configuration");
 }
 
