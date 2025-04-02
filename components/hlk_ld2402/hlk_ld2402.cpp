@@ -736,6 +736,20 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     // Get byte 7 value for motion detection (if available)
     uint8_t motion_value = (frame_data.size() > 7) ? frame_data[7] : 0;
     
+    // Define status_text based on detection_status
+    // NOTE: Despite what the manual says about status values 0=none, 1=moving, 2=stationary,
+    // observations show the device only ever returns 0x00 or 0x01 in practice
+    const char* status_text;
+    if (detection_status == 0) {
+      status_text = "no presence";
+    } else if (detection_status == 1) {
+      status_text = "person moving";
+    } else if (detection_status == 2) {
+      status_text = "stationary person"; // Never seen in practice
+    } else {
+      status_text = "unknown status";
+    }
+    
     // Log all values for debugging
     if (frame_data.size() > 9) {
       ESP_LOGI(TAG, "Frame bytes 5-9: %02X %02X %02X %02X %02X (byte 6 = status: %s, byte 7 = %u)",
