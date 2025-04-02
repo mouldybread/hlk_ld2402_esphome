@@ -180,6 +180,28 @@ public:
   bool set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds);
   bool set_micromotion_thresholds(const std::map<uint8_t, float> &gate_thresholds);
   
+  // Add new methods to get cached threshold values directly
+  std::vector<float> get_cached_motion_thresholds() {
+    return motion_threshold_values_;
+  }
+  
+  std::vector<float> get_cached_micromotion_thresholds() {
+    return micromotion_threshold_values_;
+  }
+
+  // Service to read thresholds and return values without needing sensors
+  std::vector<float> read_and_get_motion_thresholds() {
+    get_all_motion_thresholds();
+    delay(100); // Brief delay to ensure values are updated
+    return motion_threshold_values_;
+  }
+  
+  std::vector<float> read_and_get_micromotion_thresholds() {
+    get_all_micromotion_thresholds();
+    delay(100); // Brief delay to ensure values are updated
+    return micromotion_threshold_values_;
+  }
+
 protected:
   bool enter_config_mode_();
   bool enter_config_mode_quick_();  // New quick entry method

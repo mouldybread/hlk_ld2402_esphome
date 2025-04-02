@@ -6,12 +6,7 @@ esphome:
     then:
       - delay: 10s  # Wait for radar module to fully initialize
       - logger.log: "Reading thresholds and syncing sliders on boot"
-      - button.press: read_motion_thresholds
-      - delay: 20s
-      - button.press: read_micromotion_thresholds
-      # Read micromotion twice to prevent device sending null data. Do not remove this comment or the duplicate line.
-      - delay: 20s
-      - button.press: read_micromotion_thresholds
+      - button.press: read_all_thresholds  # Use the new combined button
 
 # More of your configuration goes here
 
@@ -315,63 +310,64 @@ button:
             id(micromotion_coefficient).state
           );
 
-  # Updated buttons to read thresholds AND update sliders
+  # Keep only the combined button to read all thresholds, removing the separate buttons
   - platform: template
-    name: "Read Motion Thresholds"
-    id: read_motion_thresholds  # Add this ID for referencing in on_boot
+    name: "Read All Thresholds"
+    id: read_all_thresholds
     icon: "mdi:refresh"
     entity_category: diagnostic
     on_press:
       - lambda: |-
-          id(radar_sensor).read_motion_thresholds();
-          delay(500); // Wait for values to be updated
-          // Update all slider positions
-          id(gate_00_motion_threshold).publish_state(id(radar_motion_threshold_00).state);
-          id(gate_01_motion_threshold).publish_state(id(radar_motion_threshold_01).state);
-          id(gate_02_motion_threshold).publish_state(id(radar_motion_threshold_02).state);
-          id(gate_03_motion_threshold).publish_state(id(radar_motion_threshold_03).state);
-          id(gate_04_motion_threshold).publish_state(id(radar_motion_threshold_04).state);
-          id(gate_05_motion_threshold).publish_state(id(radar_motion_threshold_05).state);
-          id(gate_06_motion_threshold).publish_state(id(radar_motion_threshold_06).state);
-          id(gate_07_motion_threshold).publish_state(id(radar_motion_threshold_07).state);
-          id(gate_08_motion_threshold).publish_state(id(radar_motion_threshold_08).state);
-          id(gate_09_motion_threshold).publish_state(id(radar_motion_threshold_09).state);
-          id(gate_10_motion_threshold).publish_state(id(radar_motion_threshold_10).state);
-          id(gate_11_motion_threshold).publish_state(id(radar_motion_threshold_11).state);
-          id(gate_12_motion_threshold).publish_state(id(radar_motion_threshold_12).state);
-          id(gate_13_motion_threshold).publish_state(id(radar_motion_threshold_13).state);
-          id(gate_14_motion_threshold).publish_state(id(radar_motion_threshold_14).state);
-      
-  - platform: template
-    name: "Read Micromotion Thresholds"
-    id: read_micromotion_thresholds  # Add this ID for referencing in on_boot
-    icon: "mdi:refresh"
-    entity_category: diagnostic
-    on_press:
-      - lambda: |-
-          id(radar_sensor).read_micromotion_thresholds();
-          delay(500); // Wait for values to be updated
-          // Update all slider positions
-          id(gate_00_micromotion_threshold).publish_state(id(radar_micromotion_threshold_00).state);
-          id(gate_01_micromotion_threshold).publish_state(id(radar_micromotion_threshold_01).state);
-          id(gate_02_micromotion_threshold).publish_state(id(radar_micromotion_threshold_02).state);
-          id(gate_03_micromotion_threshold).publish_state(id(radar_micromotion_threshold_03).state);
-          id(gate_04_micromotion_threshold).publish_state(id(radar_micromotion_threshold_04).state);
-          id(gate_05_micromotion_threshold).publish_state(id(radar_micromotion_threshold_05).state);
-          id(gate_06_micromotion_threshold).publish_state(id(radar_micromotion_threshold_06).state);
-          id(gate_07_micromotion_threshold).publish_state(id(radar_micromotion_threshold_07).state);
-          id(gate_08_micromotion_threshold).publish_state(id(radar_micromotion_threshold_08).state);
-          id(gate_09_micromotion_threshold).publish_state(id(radar_micromotion_threshold_09).state);
-          id(gate_10_micromotion_threshold).publish_state(id(radar_micromotion_threshold_10).state);
-          id(gate_11_micromotion_threshold).publish_state(id(radar_micromotion_threshold_11).state);
-          id(gate_12_micromotion_threshold).publish_state(id(radar_micromotion_threshold_12).state);
-          id(gate_13_micromotion_threshold).publish_state(id(radar_micromotion_threshold_13).state);
-          id(gate_14_micromotion_threshold).publish_state(id(radar_micromotion_threshold_14).state);
+          // First read motion thresholds
+          auto motion_thresholds = id(radar_sensor).read_and_get_motion_thresholds();
+          
+          // Update motion threshold sliders
+          if (motion_thresholds.size() > 0) id(gate_00_motion_threshold).publish_state(motion_thresholds[0]);
+          if (motion_thresholds.size() > 1) id(gate_01_motion_threshold).publish_state(motion_thresholds[1]);
+          if (motion_thresholds.size() > 2) id(gate_02_motion_threshold).publish_state(motion_thresholds[2]);
+          if (motion_thresholds.size() > 3) id(gate_03_motion_threshold).publish_state(motion_thresholds[3]);
+          if (motion_thresholds.size() > 4) id(gate_04_motion_threshold).publish_state(motion_thresholds[4]);
+          if (motion_thresholds.size() > 5) id(gate_05_motion_threshold).publish_state(motion_thresholds[5]);
+          if (motion_thresholds.size() > 6) id(gate_06_motion_threshold).publish_state(motion_thresholds[6]);
+          if (motion_thresholds.size() > 7) id(gate_07_motion_threshold).publish_state(motion_thresholds[7]);
+          if (motion_thresholds.size() > 8) id(gate_08_motion_threshold).publish_state(motion_thresholds[8]);
+          if (motion_thresholds.size() > 9) id(gate_09_motion_threshold).publish_state(motion_thresholds[9]);
+          if (motion_thresholds.size() > 10) id(gate_10_motion_threshold).publish_state(motion_thresholds[10]);
+          if (motion_thresholds.size() > 11) id(gate_11_motion_threshold).publish_state(motion_thresholds[11]);
+          if (motion_thresholds.size() > 12) id(gate_12_motion_threshold).publish_state(motion_thresholds[12]);
+          if (motion_thresholds.size() > 13) id(gate_13_motion_threshold).publish_state(motion_thresholds[13]);
+          if (motion_thresholds.size() > 14) id(gate_14_motion_threshold).publish_state(motion_thresholds[14]);
+          
+          // Delay to ensure device has time to process before next command
+          delay(1000);
+          
+          // Then read micromotion thresholds
+          auto micromotion_thresholds = id(radar_sensor).read_and_get_micromotion_thresholds();
+          
+          // Update micromotion threshold sliders
+          if (micromotion_thresholds.size() > 0) id(gate_00_micromotion_threshold).publish_state(micromotion_thresholds[0]);
+          if (micromotion_thresholds.size() > 1) id(gate_01_micromotion_threshold).publish_state(micromotion_thresholds[1]);
+          if (micromotion_thresholds.size() > 2) id(gate_02_micromotion_threshold).publish_state(micromotion_thresholds[2]);
+          if (micromotion_thresholds.size() > 3) id(gate_03_micromotion_threshold).publish_state(micromotion_thresholds[3]);
+          if (micromotion_thresholds.size() > 4) id(gate_04_micromotion_threshold).publish_state(micromotion_thresholds[4]);
+          if (micromotion_thresholds.size() > 5) id(gate_05_micromotion_threshold).publish_state(micromotion_thresholds[5]);
+          if (micromotion_thresholds.size() > 6) id(gate_06_micromotion_threshold).publish_state(micromotion_thresholds[6]);
+          if (micromotion_thresholds.size() > 7) id(gate_07_micromotion_threshold).publish_state(micromotion_thresholds[7]);
+          if (micromotion_thresholds.size() > 8) id(gate_08_micromotion_threshold).publish_state(micromotion_thresholds[8]);
+          if (micromotion_thresholds.size() > 9) id(gate_09_micromotion_threshold).publish_state(micromotion_thresholds[9]);
+          if (micromotion_thresholds.size() > 10) id(gate_10_micromotion_threshold).publish_state(micromotion_thresholds[10]);
+          if (micromotion_thresholds.size() > 11) id(gate_11_micromotion_threshold).publish_state(micromotion_thresholds[11]);
+          if (micromotion_thresholds.size() > 12) id(gate_12_micromotion_threshold).publish_state(micromotion_thresholds[12]);
+          if (micromotion_thresholds.size() > 13) id(gate_13_micromotion_threshold).publish_state(micromotion_thresholds[13]);
+          if (micromotion_thresholds.size() > 14) id(gate_14_micromotion_threshold).publish_state(micromotion_thresholds[14]);
+          
+          // Log completion
+          ESP_LOGI("threshold_sync", "All threshold sliders updated");
 
 # Add sliders for calibration coefficients and gate thresholds - all sliders must be in number section
 number:
   - platform: template
-    name: "Calibration: Trigger Multiplier"  # Updated name to clarify purposeurpose
+    name: "Calibration: Trigger Multiplier"  # Updated name to clarify purpose
     id: trigger_coefficient
     optimistic: true
     min_value: 1.0
@@ -381,9 +377,9 @@ number:
     icon: "mdi:tune-vertical"
     unit_of_measurement: "x"
     entity_category: config  # Add this to indicate it's a configuration parameter
-    
+
   - platform: template
-    name: "Calibration: Hold Multiplier"  # Updated named name
+    name: "Calibration: Hold Multiplier"  # Updated name
     id: hold_coefficient
     optimistic: true
     min_value: 1.0
@@ -395,7 +391,7 @@ number:
     entity_category: config  # Add this to indicate it's a configuration parameter
     
   - platform: template
-    name: "Calibration: Micromotion Multiplier"  # Updated named name
+    name: "Calibration: Micromotion Multiplier"  # Updated name
     id: micromotion_coefficient
     optimistic: true
     min_value: 1.0
@@ -616,7 +612,7 @@ number:
     on_value:
       - lambda: |-
           id(radar_sensor).set_gate_motion_threshold(14, id(gate_14_motion_threshold).state);
-  
+
   # Micromotion threshold sliders for gates
   - platform: template
     name: "Gate 00 Micromotion Threshold"
