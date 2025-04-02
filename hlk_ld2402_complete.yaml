@@ -263,6 +263,11 @@ text_sensor:
 # Control buttons - using template buttons 
 button:
   - platform: template
+    name: "Check Radar Firmware Version"
+    icon: "mdi:information-outline"
+    on_press:
+      - lambda: id(radar_sensor).get_firmware_version_();
+  - platform: template
     name: "Check Power Interference"
     icon: "mdi:power-plug"
     on_press:

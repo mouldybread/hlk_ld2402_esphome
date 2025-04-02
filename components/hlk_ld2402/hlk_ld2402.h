@@ -201,6 +201,10 @@ public:
     return static_threshold_values_;
   }
 
+  // These methods should be accessible to buttons
+  void get_firmware_version_();
+  void check_power_interference();
+
 protected:
   bool enter_config_mode_();
   bool enter_config_mode_quick_();  // New quick entry method
@@ -213,7 +217,6 @@ protected:
   bool set_work_mode_with_timeout_(uint32_t mode, uint32_t timeout_ms);  // New method with timeout
   void process_line_(const std::string &line);
   void dump_hex_(const uint8_t *data, size_t len, const char* prefix);
-  bool write_frame_(const std::vector<uint8_t> &frame);
   void get_firmware_version_();  // Add the missing function declaration
   void begin_passive_version_detection_();  // New method for passive detection
   void publish_operating_mode_();  // New method to publish the current operating mode
