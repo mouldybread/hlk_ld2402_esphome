@@ -649,9 +649,17 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     ESP_LOGW(TAG, "Not a distance frame type: 0x%02X", frame_data[4]);
     return false;
   }
+
+  // Dump entire frame for debugging at INFO level
+  char hex_buf[128] = {0};
+  for (size_t i = 0; i < std::min(frame_data.size(), size_t(30)); i++) {
+    sprintf(hex_buf + (i*3), "%02X ", frame_data[i]);
+  }
+  ESP_LOGI(TAG, "Distance frame raw data: %s", hex_buf);
   
   // Parse the data length from the frame
-  uint16_t data_length = frame_data[6] | (frame_data[7] << 8);
+  uint16_t data_length = frame_data[5] | (frame_data[6] << 8);
+  ESP_LOGI(TAG, "Frame data length: %u bytes", data_length);
   
   // Check if we have at least enough data for distance values
   if (frame_data.size() < 14) {
@@ -689,14 +697,20 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   
   // If we found a valid distance
   if (min_distance_cm > 0) {
-    // Extract the detection status from the frame data
-    // FIX: According to documentation, detection status is at index 6, not 8
+    // According to the documentation: detection status is the 7th byte (index 6)
     uint8_t detection_status = 0;
-    if (frame_data.size() >= 7) {  // Changed from 9 to 7 to ensure we have enough data
-      detection_status = frame_data[6];  // Changed from 8 to 6 - this is the detection status byte
+
+    // IMPORTANT: The frame structure per documentation is:
+    // F4 F3 F2 F1 (header, 4 bytes)
+    // 83 (type, 1 byte)
+    // 00 (length LSB, 1 byte)
+    // 01 (length MSB, 1 byte)
+    // XX (detection status, 1 byte) <-- This is what we want, at index 7
+    if (frame_data.size() >= 8) {
+      detection_status = frame_data[7];  // Changed from index 6 to 7 (zero-based)
       
-      // Add more debug logging to help troubleshoot
-      ESP_LOGI(TAG, "Detection status byte: 0x%02X (%u) - %s", 
+      // Log at INFO level to make sure it shows up in logs
+      ESP_LOGI(TAG, "Detection status byte [index 7]: 0x%02X (%u) - %s", 
                detection_status, detection_status,
                detection_status == 0 ? "no person" : 
                detection_status == 1 ? "person moving" : 
@@ -931,12 +945,21 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
   if (this->presence_binary_sensor_ != nullptr) {
     // Detection status: 0=no person, 1=person moving, 2=stationary person
     bool is_presence = (detection_status > 0);
+    
+    // Log before updating to ensure we see what's happening
+    ESP_LOGI(TAG, "Updating presence sensor to %s (status code %u) at distance %.1f cm", 
+             is_presence ? "ON" : "OFF", detection_status, distance_cm);
+    
     this->presence_binary_sensor_->publish_state(is_presence);
     
     if (is_presence) {
       const char* status_text = (detection_status == 1) ? "moving person" : "stationary person";
-      ESP_LOGD(TAG, "Presence detected: %s at %.1f cm", status_text, distance_cm);
+      ESP_LOGI(TAG, "Presence detected: %s at %.1f cm", status_text, distance_cm);
+    } else {
+      ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
     }
+  } else {
+    ESP_LOGW(TAG, "Presence binary sensor not configured!");
   }
 }
 
