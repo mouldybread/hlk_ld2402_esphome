@@ -703,8 +703,8 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
       case 2: status_text = "stationary person"; break;
     }
     
-    // Always update binary sensors (no throttling needed)
-    update_binary_sensors_(min_distance_cm);
+    // Always update binary sensors (no throttling needed) - pass detection status
+    update_binary_sensors_(min_distance_cm, detection_status);
     
     // For distance sensor, check throttling
     uint32_t now = millis();
@@ -918,11 +918,17 @@ bool HLKLD2402Component::process_engineering_data_(const std::vector<uint8_t> &f
 }
 
 // Create a separate method for updating binary sensors to avoid code duplication
-void HLKLD2402Component::update_binary_sensors_(float distance_cm) {
-  // Update presence states based on documented ranges
+void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detection_status) {
+  // Update presence based on detection status
   if (this->presence_binary_sensor_ != nullptr) {
-    bool is_presence = distance_cm <= (STATIC_RANGE * 100);
+    // Detection status: 0=no person, 1=person moving, 2=stationary person
+    bool is_presence = (detection_status > 0);
     this->presence_binary_sensor_->publish_state(is_presence);
+    
+    if (is_presence) {
+      const char* status_text = (detection_status == 1) ? "moving person" : "stationary person";
+      ESP_LOGD(TAG, "Presence detected: %s at %.1f cm", status_text, distance_cm);
+    }
   }
 }
 
@@ -936,7 +942,7 @@ void HLKLD2402Component::process_line_(const std::string &line) {
     if (this->presence_binary_sensor_ != nullptr) {
       this->presence_binary_sensor_->publish_state(false);
     }
-    
+        
     // Only update the distance sensor if not throttled
     uint32_t now = millis();
     bool throttled = (this->distance_sensor_ != nullptr && 
@@ -997,8 +1003,25 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   }
   
   if (valid_distance) {
-    // Always update binary sensors
-    update_binary_sensors_(distance_cm);
+    // Check if the line contains presence information
+    uint8_t detection_status = 0;
+    
+    // Look for presence indicators in the line
+    if (line.find("presence") != std::string::npos || 
+        line.find("detected") != std::string::npos || 
+        line.find("person") != std::string::npos) {
+      // Default to moving person if presence is indicated
+      detection_status = 1;
+      
+      // Check for stationary indicators
+      if (line.find("stationary") != std::string::npos || 
+          line.find("static") != std::string::npos) {
+        detection_status = 2;
+      }
+    }
+    
+    // Always update binary sensors with detected status
+    update_binary_sensors_(distance_cm, detection_status);
     
     // For distance sensor, apply throttling
     uint32_t now = millis();

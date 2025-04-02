@@ -200,7 +200,9 @@ protected:
   bool process_distance_frame_(const std::vector<uint8_t> &frame_data);
   bool process_engineering_data_(const std::vector<uint8_t> &frame_data);
   bool process_engineering_from_distance_frame_(const std::vector<uint8_t> &frame_data); // New method
-  void update_binary_sensors_(float distance_cm);  // Method signature unchanged, but implementation will change
+  
+  // Update method signature to accept detection status
+  void update_binary_sensors_(float distance_cm, uint8_t detection_status);
 
   // Batch parameter reading method
   bool get_parameters_batch_(const std::vector<uint16_t> &param_ids, std::vector<uint32_t> &values);
