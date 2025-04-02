@@ -1962,12 +1962,11 @@ void HLKLD2402Component::factory_reset() {
   set_parameter_(PARAM_TIMEOUT, 5);
   delay(200);
   
-  // Reset only trigger threshold for gate 0 as an example
   ESP_LOGI(TAG, "Resetting main threshold values");
   set_parameter_(PARAM_TRIGGER_THRESHOLD, 30);  // 30 = ~3.0 coefficient
   delay(200);  
   
-  // Fix: Change PARAM_MICRO_THRESHOLD to PARAM_STATIC_THRESHOLD
+  // Fix: Use PARAM_STATIC_THRESHOLD parameter instead of the old PARAM_MICRO_THRESHOLD
   set_parameter_(PARAM_STATIC_THRESHOLD, 30);
   delay(200);  
   
@@ -2253,6 +2252,7 @@ bool HLKLD2402Component::set_motion_thresholds(const std::map<uint8_t, float> &g
   return set_parameters_batch(params);
 }
 
+// Fix: Also need to modify set_micromotion_thresholds to use PARAM_STATIC_THRESHOLD
 bool HLKLD2402Component::set_micromotion_thresholds(const std::map<uint8_t, float> &gate_thresholds) {
   if (gate_thresholds.empty()) {
     ESP_LOGW(TAG, "No micromotion thresholds to set");
@@ -2275,7 +2275,7 @@ bool HLKLD2402Component::set_micromotion_thresholds(const std::map<uint8_t, floa
     uint32_t threshold = db_to_threshold_(db_value);
     
     // Gate-specific parameter ID
-    uint16_t param_id = PARAM_MICRO_THRESHOLD + gate;
+    uint16_t param_id = PARAM_STATIC_THRESHOLD + gate;
     params.push_back(std::make_pair(param_id, threshold));
     
     ESP_LOGI(TAG, "Adding micromotion threshold for gate %d: %.1f dB (raw: %u)", 
@@ -2480,7 +2480,7 @@ bool HLKLD2402Component::get_all_motion_thresholds() {
   return success;
 }
 
-// Method to read all micromotion thresholds in one call
+// Fix: Similar change for get_all_micromotion_thresholds
 bool HLKLD2402Component::get_all_micromotion_thresholds() {
   ESP_LOGI(TAG, "Reading all micromotion thresholds");
   
@@ -2489,10 +2489,10 @@ bool HLKLD2402Component::get_all_micromotion_thresholds() {
     return false;
   }
   
-  // Prepare parameter IDs for micromotion threshold gates (0x0030 to 0x003F)
+  // Prepare parameter IDs using PARAM_STATIC_THRESHOLD
   std::vector<uint16_t> param_ids;
   for (uint16_t i = 0; i < 16; i++) {
-    param_ids.push_back(PARAM_MICRO_THRESHOLD + i);
+    param_ids.push_back(PARAM_STATIC_THRESHOLD + i);
   }
   
   std::vector<uint32_t> values;
