@@ -167,22 +167,7 @@ public:
   }
   
   void read_micromotion_thresholds() {
-    // Command structure matches what's seen in the serial capture
-    // fd fc fb fa 08 00 08 01 00 00 ... 
-    uint8_t cmd[12] = {0xFD, 0xFC, 0xFB, 0xFA, 0x08, 0x00, 0x08, 0x01, 0x00, 0x00, 0x04, 0x03};
-    
-    this->write_array(cmd, 12);
-    
-    // Ensure normal operation resumes by waiting briefly
-    // before sending a "reset" or continuation command
-    delay(100);
-    
-    // Send a simple query command to "reset" the device communication state
-    // Based on the serial capture: fd fc fb fa 04 00 fe 01 00 00 04 03 02 01
-    uint8_t reset_cmd[8] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFE, 0x01};
-    this->write_array(reset_cmd, 8);
-    
-    ESP_LOGI(TAG, "Micromotion thresholds read requested");
+    get_all_micromotion_thresholds();
   }
 
 protected:
