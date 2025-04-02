@@ -65,7 +65,7 @@ void HLKLD2402Component::setup() {
   ESP_LOGI(TAG, "Use the Engineering Mode button if you need to modify settings.");
   
   // Don't check power interference immediately - use a delayed operation
-  ESP_LOGI(TAG, "Will check power interference and firmware version after 60 seconds");
+  ESP_LOGI(TAG, "Will check firmware version after 20 seconds");
   
   // Remove the immediate firmware version check - it will happen after 60 seconds
   // get_firmware_version_();
@@ -184,7 +184,6 @@ void HLKLD2402Component::loop() {
   static uint8_t last_bytes[16] = {0};
   static size_t last_byte_pos = 0;
   static bool firmware_check_done = false;
-  static bool power_check_done = false;
   static uint32_t startup_time = millis();
   static uint32_t last_eng_debug_time = 0;
   static uint32_t eng_mode_start_time = 0;
@@ -198,14 +197,6 @@ void HLKLD2402Component::loop() {
     get_firmware_version_();
     firmware_check_done = true;
     firmware_check_time = millis();  // Record when firmware check completes
-  }
-  
-  // Power interference check 3 seconds after firmware check completes
-  if (firmware_check_done && !power_check_done && 
-      firmware_check_time > 0 && (millis() - firmware_check_time) > 3000) {
-    ESP_LOGI(TAG, "Performing power interference check...");
-    check_power_interference();
-    power_check_done = true;
   }
   
   // Add periodic debug message - reduce frequency

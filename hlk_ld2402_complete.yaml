@@ -263,6 +263,11 @@ text_sensor:
 # Control buttons - using template buttons 
 button:
   - platform: template
+    name: "Check Power Interference"
+    icon: "mdi:power-plug"
+    on_press:
+      - lambda: id(radar_sensor).check_power_interference();
+  - platform: template
     name: "Calibrate"
     on_press:
       - lambda: id(radar_sensor).calibrate();
