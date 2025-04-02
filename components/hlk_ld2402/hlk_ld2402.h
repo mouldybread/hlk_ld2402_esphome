@@ -42,7 +42,7 @@ static const uint16_t PARAM_MAX_DISTANCE = 0x0001;  // Max detection distance
 static const uint16_t PARAM_TIMEOUT = 0x0004;  // Target disappearance delay
 static const uint16_t PARAM_POWER_INTERFERENCE = 0x0005;  // Power interference status (read-only)
 static const uint16_t PARAM_TRIGGER_THRESHOLD = 0x0010;  // Motion trigger threshold base (0x0010-0x001F)
-static const uint16_t PARAM_MICRO_THRESHOLD = 0x0030;  // Micromotion threshold base (0x0030-0x003F)
+static const uint16_t PARAM_STATIC_THRESHOLD = 0x0030;  // Static threshold base (0x0030-0x003F)
 
 // Work modes
 static const uint32_t MODE_PRODUCTION = 0x00000064;  // Normal production mode
@@ -59,7 +59,7 @@ static const esphome::uart::UARTParityOptions UART_PARITY = esphome::uart::UART_
 // Constants from manual
 static constexpr float MAX_THEORETICAL_RANGE = 10.0f;  // Max 10m for movement
 static constexpr float MOVEMENT_RANGE = 10.0f;         // Max 10m for movement
-static constexpr float MICROMOVEMENT_RANGE = 6.0f;     // Max 6m for micro-movement
+static constexpr float STATIC_RANGE = 6.0f;            // Max 6m for static detection
 static constexpr float STATIC_RANGE = 5.0f;            // Max 5m for static detection
 static constexpr float DISTANCE_PRECISION = 0.15f;     // ±0.15m accuracy
 static constexpr float DISTANCE_GATE_SIZE = 0.7f;      // 0.7m per gate
@@ -113,12 +113,12 @@ public:
     }
   }
   
-  void set_micromotion_threshold_sensor(uint8_t gate_index, sensor::Sensor *threshold_sensor) {
+  void set_static_threshold_sensor(uint8_t gate_index, sensor::Sensor *threshold_sensor) {
     if (gate_index < MAX_GATES) {
-      if (micromotion_threshold_sensors_.size() <= gate_index) {
-        micromotion_threshold_sensors_.resize(gate_index + 1, nullptr);
+      if (static_threshold_sensors_.size() <= gate_index) {
+        static_threshold_sensors_.resize(gate_index + 1, nullptr);
       }
-      micromotion_threshold_sensors_[gate_index] = threshold_sensor;
+      static_threshold_sensors_[gate_index] = threshold_sensor;
     }
   }
   
@@ -144,33 +144,33 @@ public:
 
   // Add new threshold setting methods
   bool set_motion_threshold(uint8_t gate, float db_value);
-  bool set_micromotion_threshold(uint8_t gate, float db_value);
-  bool calibrate_with_coefficients(float trigger_coeff, float hold_coeff, float micromotion_coeff);
+  bool set_static_threshold(uint8_t gate, float db_value);
+  bool calibrate_with_coefficients(float trigger_coeff, float hold_coeff, float static_coeff);
 
   // Service for setting motion threshold for a specific gate
   void set_gate_motion_threshold(int gate, float db_value) {
     set_motion_threshold(gate, db_value);
   }
   
-  // Service for setting micromotion threshold for a specific gate
-  void set_gate_micromotion_threshold(int gate, float db_value) {
+  // Service for setting static threshold for a specific gate
+  void set_gate_static_threshold(int gate, float db_value) {
     // Create a map with a single entry to call the plural version
     std::map<uint8_t, float> thresholds;
     thresholds[gate] = db_value;
-    set_micromotion_thresholds(thresholds);
+    set_static_thresholds(thresholds);
   }
 
   // Add new method declarations for batch parameter operations
   bool get_all_motion_thresholds();
-  bool get_all_micromotion_thresholds();
+  bool get_all_static_thresholds();
   
   // Service to read thresholds
   void read_motion_thresholds() {
     get_all_motion_thresholds();
   }
   
-  void read_micromotion_thresholds() {
-    get_all_micromotion_thresholds();
+  void read_static_thresholds() {
+    get_all_static_thresholds();
   }
 
   // Add new batch parameter setting method
@@ -178,15 +178,15 @@ public:
   
   // Add new methods for setting multiple thresholds at once
   bool set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds);
-  bool set_micromotion_thresholds(const std::map<uint8_t, float> &gate_thresholds);
+  bool set_static_thresholds(const std::map<uint8_t, float> &gate_thresholds);
   
   // Add new methods to get cached threshold values directly
   std::vector<float> get_cached_motion_thresholds() {
     return motion_threshold_values_;
   }
   
-  std::vector<float> get_cached_micromotion_thresholds() {
-    return micromotion_threshold_values_;
+  std::vector<float> get_cached_static_thresholds() {
+    return static_threshold_values_;
   }
 
   // Service to read thresholds and return values without needing sensors
@@ -196,10 +196,10 @@ public:
     return motion_threshold_values_;
   }
   
-  std::vector<float> read_and_get_micromotion_thresholds() {
-    get_all_micromotion_thresholds();
+  std::vector<float> read_and_get_static_thresholds() {
+    get_all_static_thresholds();
     delay(100); // Brief delay to ensure values are updated
-    return micromotion_threshold_values_;
+    return static_threshold_values_;
   }
 
 protected:
@@ -270,10 +270,10 @@ private:
   bool engineering_data_enabled_{false}; // Flag to enable engineering data processing
   // Add storage for threshold sensors
   std::vector<sensor::Sensor *> motion_threshold_sensors_;
-  std::vector<sensor::Sensor *> micromotion_threshold_sensors_;
+  std::vector<sensor::Sensor *> static_threshold_sensors_;
   // Add cache for threshold values
   std::vector<float> motion_threshold_values_;
-  std::vector<float> micromotion_threshold_values_;
+  std::vector<float> static_threshold_values_;
 
 };
 

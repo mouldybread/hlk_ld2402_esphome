@@ -307,7 +307,7 @@ button:
           id(radar_sensor).calibrate_with_coefficients(
             id(trigger_coefficient).state,
             id(hold_coefficient).state,
-            id(micromotion_coefficient).state
+            id(static_coefficient).state
           );
 
   # Keep only the combined button to read all thresholds, removing the separate buttons
@@ -341,25 +341,25 @@ button:
           // Delay to ensure device has time to process before next command
           delay(1000);
           
-          // Then read micromotion thresholds
-          auto micromotion_thresholds = id(radar_sensor).read_and_get_micromotion_thresholds();
+          // Then read static thresholds
+          auto static_thresholds = id(radar_sensor).read_and_get_static_thresholds();
           
-          // Update micromotion threshold sliders
-          if (micromotion_thresholds.size() > 0) id(gate_00_micromotion_threshold).publish_state(micromotion_thresholds[0]);
-          if (micromotion_thresholds.size() > 1) id(gate_01_micromotion_threshold).publish_state(micromotion_thresholds[1]);
-          if (micromotion_thresholds.size() > 2) id(gate_02_micromotion_threshold).publish_state(micromotion_thresholds[2]);
-          if (micromotion_thresholds.size() > 3) id(gate_03_micromotion_threshold).publish_state(micromotion_thresholds[3]);
-          if (micromotion_thresholds.size() > 4) id(gate_04_micromotion_threshold).publish_state(micromotion_thresholds[4]);
-          if (micromotion_thresholds.size() > 5) id(gate_05_micromotion_threshold).publish_state(micromotion_thresholds[5]);
-          if (micromotion_thresholds.size() > 6) id(gate_06_micromotion_threshold).publish_state(micromotion_thresholds[6]);
-          if (micromotion_thresholds.size() > 7) id(gate_07_micromotion_threshold).publish_state(micromotion_thresholds[7]);
-          if (micromotion_thresholds.size() > 8) id(gate_08_micromotion_threshold).publish_state(micromotion_thresholds[8]);
-          if (micromotion_thresholds.size() > 9) id(gate_09_micromotion_threshold).publish_state(micromotion_thresholds[9]);
-          if (micromotion_thresholds.size() > 10) id(gate_10_micromotion_threshold).publish_state(micromotion_thresholds[10]);
-          if (micromotion_thresholds.size() > 11) id(gate_11_micromotion_threshold).publish_state(micromotion_thresholds[11]);
-          if (micromotion_thresholds.size() > 12) id(gate_12_micromotion_threshold).publish_state(micromotion_thresholds[12]);
-          if (micromotion_thresholds.size() > 13) id(gate_13_micromotion_threshold).publish_state(micromotion_thresholds[13]);
-          if (micromotion_thresholds.size() > 14) id(gate_14_micromotion_threshold).publish_state(micromotion_thresholds[14]);
+          // Update static threshold sliders
+          if (static_thresholds.size() > 0) id(gate_00_static_threshold).publish_state(static_thresholds[0]);
+          if (static_thresholds.size() > 1) id(gate_01_static_threshold).publish_state(static_thresholds[1]);
+          if (static_thresholds.size() > 2) id(gate_02_static_threshold).publish_state(static_thresholds[2]);
+          if (static_thresholds.size() > 3) id(gate_03_static_threshold).publish_state(static_thresholds[3]);
+          if (static_thresholds.size() > 4) id(gate_04_static_threshold).publish_state(static_thresholds[4]);
+          if (static_thresholds.size() > 5) id(gate_05_static_threshold).publish_state(static_thresholds[5]);
+          if (static_thresholds.size() > 6) id(gate_06_static_threshold).publish_state(static_thresholds[6]);
+          if (static_thresholds.size() > 7) id(gate_07_static_threshold).publish_state(static_thresholds[7]);
+          if (static_thresholds.size() > 8) id(gate_08_static_threshold).publish_state(static_thresholds[8]);
+          if (static_thresholds.size() > 9) id(gate_09_static_threshold).publish_state(static_thresholds[9]);
+          if (static_thresholds.size() > 10) id(gate_10_static_threshold).publish_state(static_thresholds[10]);
+          if (static_thresholds.size() > 11) id(gate_11_static_threshold).publish_state(static_thresholds[11]);
+          if (static_thresholds.size() > 12) id(gate_12_static_threshold).publish_state(static_thresholds[12]);
+          if (static_thresholds.size() > 13) id(gate_13_static_threshold).publish_state(static_thresholds[13]);
+          if (static_thresholds.size() > 14) id(gate_14_static_threshold).publish_state(static_thresholds[14]);
           
           // Log completion
           ESP_LOGI("threshold_sync", "All threshold sliders updated");
@@ -391,8 +391,8 @@ number:
     entity_category: config  # Add this to indicate it's a configuration parameter
     
   - platform: template
-    name: "Calibration: Micromotion Multiplier"  # Updated name
-    id: micromotion_coefficient
+    name: "Calibration: Static Multiplier"  # Updated name
+    id: static_coefficient
     optimistic: true
     min_value: 1.0
     max_value: 20.0
@@ -613,10 +613,10 @@ number:
       - lambda: |-
           id(radar_sensor).set_gate_motion_threshold(14, id(gate_14_motion_threshold).state);
 
-  # Micromotion threshold sliders for gates
+  # Static threshold sliders for gates (renamed from Micromotion)
   - platform: template
-    name: "Gate 00 Micromotion Threshold"
-    id: gate_00_micromotion_threshold
+    name: "Gate 00 Static Threshold"
+    id: gate_00_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -626,11 +626,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(0, id(gate_00_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(0, id(gate_00_static_threshold).state);
   
   - platform: template
-    name: "Gate 01 Micromotion Threshold"
-    id: gate_01_micromotion_threshold
+    name: "Gate 01 Static Threshold"
+    id: gate_01_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -640,11 +640,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(1, id(gate_01_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(1, id(gate_01_static_threshold).state);
   
   - platform: template
-    name: "Gate 02 Micromotion Threshold"
-    id: gate_02_micromotion_threshold
+    name: "Gate 02 Static Threshold"
+    id: gate_02_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -654,11 +654,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(2, id(gate_02_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(2, id(gate_02_static_threshold).state);
           
   - platform: template
-    name: "Gate 03 Micromotion Threshold"
-    id: gate_03_micromotion_threshold
+    name: "Gate 03 Static Threshold"
+    id: gate_03_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -668,11 +668,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(3, id(gate_03_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(3, id(gate_03_static_threshold).state);
           
   - platform: template
-    name: "Gate 04 Micromotion Threshold"
-    id: gate_04_micromotion_threshold
+    name: "Gate 04 Static Threshold"
+    id: gate_04_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -682,11 +682,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(4, id(gate_04_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(4, id(gate_04_static_threshold).state);
           
   - platform: template
-    name: "Gate 05 Micromotion Threshold"
-    id: gate_05_micromotion_threshold
+    name: "Gate 05 Static Threshold"
+    id: gate_05_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -696,11 +696,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(5, id(gate_05_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(5, id(gate_05_static_threshold).state);
           
   - platform: template
-    name: "Gate 06 Micromotion Threshold"
-    id: gate_06_micromotion_threshold
+    name: "Gate 06 Static Threshold"
+    id: gate_06_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -710,11 +710,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(6, id(gate_06_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(6, id(gate_06_static_threshold).state);
           
   - platform: template
-    name: "Gate 07 Micromotion Threshold"
-    id: gate_07_micromotion_threshold
+    name: "Gate 07 Static Threshold"
+    id: gate_07_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -724,11 +724,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(7, id(gate_07_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(7, id(gate_07_static_threshold).state);
           
   - platform: template
-    name: "Gate 08 Micromotion Threshold"
-    id: gate_08_micromotion_threshold
+    name: "Gate 08 Static Threshold"
+    id: gate_08_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -738,11 +738,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(8, id(gate_08_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(8, id(gate_08_static_threshold).state);
           
   - platform: template
-    name: "Gate 09 Micromotion Threshold"
-    id: gate_09_micromotion_threshold
+    name: "Gate 09 Static Threshold"
+    id: gate_09_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -752,11 +752,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(9, id(gate_09_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(9, id(gate_09_static_threshold).state);
           
   - platform: template
-    name: "Gate 10 Micromotion Threshold"
-    id: gate_10_micromotion_threshold
+    name: "Gate 10 Static Threshold"
+    id: gate_10_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -766,11 +766,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(10, id(gate_10_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(10, id(gate_10_static_threshold).state);
           
   - platform: template
-    name: "Gate 11 Micromotion Threshold"
-    id: gate_11_micromotion_threshold
+    name: "Gate 11 Static Threshold"
+    id: gate_11_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -780,11 +780,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(11, id(gate_11_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(11, id(gate_11_static_threshold).state);
           
   - platform: template
-    name: "Gate 12 Micromotion Threshold"
-    id: gate_12_micromotion_threshold
+    name: "Gate 12 Static Threshold"
+    id: gate_12_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -794,11 +794,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(12, id(gate_12_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(12, id(gate_12_static_threshold).state);
           
   - platform: template
-    name: "Gate 13 Micromotion Threshold"
-    id: gate_13_micromotion_threshold
+    name: "Gate 13 Static Threshold"
+    id: gate_13_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -808,11 +808,11 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(13, id(gate_13_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(13, id(gate_13_static_threshold).state);
           
   - platform: template
-    name: "Gate 14 Micromotion Threshold"
-    id: gate_14_micromotion_threshold
+    name: "Gate 14 Static Threshold"
+    id: gate_14_static_threshold
     optimistic: true
     min_value: 0.0
     max_value: 95.0
@@ -822,7 +822,7 @@ number:
     unit_of_measurement: "dB"
     on_value:
       - lambda: |-
-          id(radar_sensor).set_gate_micromotion_threshold(14, id(gate_14_micromotion_threshold).state);
+          id(radar_sensor).set_gate_static_threshold(14, id(gate_14_static_threshold).state);
 
 # Add status LED if available
 status_led:

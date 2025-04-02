@@ -18,6 +18,7 @@ CONF_ENERGY_GATE = "energy_gate"  # Energy gate sensors
 CONF_GATE_INDEX = "gate_index"     # Gate number (0-13)
 CONF_MOTION_THRESHOLD = "motion_threshold"  # Motion threshold sensors
 CONF_MICROMOTION_THRESHOLD = "micromotion_threshold"  # Micromotion threshold sensors
+CONF_STATIC_THRESHOLD = "static_threshold"  # Static threshold sensors
 
 # Update schema to include threshold sensors
 CONFIG_SCHEMA = sensor.sensor_schema().extend({
@@ -32,6 +33,9 @@ CONFIG_SCHEMA = sensor.sensor_schema().extend({
         cv.Required(CONF_GATE_INDEX): cv.int_range(0, 15),
     }),
     cv.Optional(CONF_MICROMOTION_THRESHOLD): cv.Schema({
+        cv.Required(CONF_GATE_INDEX): cv.int_range(0, 15),
+    }),
+    cv.Optional(CONF_STATIC_THRESHOLD): cv.Schema({
         cv.Required(CONF_GATE_INDEX): cv.int_range(0, 15),
     }),
 })
@@ -49,6 +53,9 @@ async def to_code(config):
     elif CONF_MICROMOTION_THRESHOLD in config:
         gate_index = config[CONF_MICROMOTION_THRESHOLD][CONF_GATE_INDEX]
         cg.add(parent.set_micromotion_threshold_sensor(gate_index, var))
+    elif CONF_STATIC_THRESHOLD in config:
+        gate_index = config[CONF_STATIC_THRESHOLD][CONF_GATE_INDEX]
+        cg.add(parent.set_static_threshold_sensor(gate_index, var))
     elif config.get(CONF_CALIBRATION_PROGRESS):
         # This is a calibration progress sensor
         cg.add(parent.set_calibration_progress_sensor(var))
