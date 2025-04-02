@@ -2458,5 +2458,166 @@ bool HLKLD2402Component::calibrate_with_coefficients(float trigger_coeff, float 
   }
 }
 
-}  // namespace hlk_ld2402
-}  // namespace esphome
+// ...existing code...h parameter setting
+::set_parameters_batch(const std::vector<std::pair<uint16_t, uint32_t>> &params) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}  // namespace esphome}  // namespace hlk_ld2402// ...existing code...}  return set_parameters_batch(params);    }             gate, db_value, threshold);    ESP_LOGI(TAG, "Adding micromotion threshold for gate %d: %.1f dB (raw: %u)",         params.push_back(std::make_pair(param_id, threshold));    uint16_t param_id = PARAM_MICRO_THRESHOLD + gate;    // Gate-specific parameter ID        uint32_t threshold = db_to_threshold_(db_value);    db_value = std::max(0.0f, std::min(95.0f, db_value));    // Clamp dB value and convert to raw threshold        }      continue;      ESP_LOGW(TAG, "Skipping invalid gate index %d", gate);    if (gate >= 16) {        float db_value = entry.second;    uint8_t gate = entry.first;  for (const auto &entry : gate_thresholds) {    std::vector<std::pair<uint16_t, uint32_t>> params;    }    return false;    ESP_LOGW(TAG, "No micromotion thresholds to set");  if (gate_thresholds.empty()) {bool HLKLD2402Component::set_micromotion_thresholds(const std::map<uint8_t, float> &gate_thresholds) {// Similar method for micromotion thresholds}  return set_parameters_batch(params);    }             gate, db_value, threshold);    ESP_LOGI(TAG, "Adding motion threshold for gate %d: %.1f dB (raw: %u)",         params.push_back(std::make_pair(param_id, threshold));    uint16_t param_id = PARAM_TRIGGER_THRESHOLD + gate;    // Gate-specific parameter ID        uint32_t threshold = db_to_threshold_(db_value);    db_value = std::max(0.0f, std::min(95.0f, db_value));    // Clamp dB value and convert to raw threshold        }      continue;      ESP_LOGW(TAG, "Skipping invalid gate index %d", gate);    if (gate >= 16) {        float db_value = entry.second;    uint8_t gate = entry.first;  for (const auto &entry : gate_thresholds) {    std::vector<std::pair<uint16_t, uint32_t>> params;    }    return false;    ESP_LOGW(TAG, "No motion thresholds to set");  if (gate_thresholds.empty()) {bool HLKLD2402Component::set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds) {  ESP_LOGI(TAG, "Setting %d parameters in batch mode", params.size());
+  
+  if (!enter_config_mode_()) {
+    ESP_LOGE(TAG, "Failed to enter config mode for batch parameter setting");
+    return false;
+  }
+  
+  // Send all parameter commands in succession
+  int success_count = 0;
+  for (const auto &param : params) {
+    uint16_t param_id = param.first;
+    uint32_t value = param.second;
+    
+    // Prepare the command data
+    uint8_t data[6];
+    data[0] = param_id & 0xFF;
+    data[1] = (param_id >> 8) & 0xFF;
+    data[2] = value & 0xFF;
+    data[3] = (value >> 8) & 0xFF;
+    data[4] = (value >> 16) & 0xFF;
+    data[5] = (value >> 24) & 0xFF;
+    
+    ESP_LOGI(TAG, "Setting parameter 0x%04X to %u", param_id, value);
+    
+    // Send command with minimal delay between commands
+    if (send_command_(CMD_SET_PARAMS, data, sizeof(data))) {
+      success_count++;
+      
+      // Just a minimal delay between commands
+      delay(50);
+      
+      // Clear any response data without waiting for it
+
+
+
+
+
+
+
+
+
+}  // namespace esphome}  // namespace hlk_ld2402}  return success;  
+  }    ESP_LOGE(TAG, "Failed to set motion threshold");  } else {             gate, db_value, threshold);      flush();
+      while (available()) {
+
+
+    ESP_LOGI(TAG, "Successfully set motion threshold for gate %d to %.1f dB (raw: %u)",
+
+
+  if (success) {  bool success = set_parameters_batch(params);    params.push_back(std::make_pair(param_id, threshold));
+
+
+  std::vector<std::pair<uint16_t, uint32_t>> params;
+
+
+
+  // Create a single parameter batch    uint16_t param_id = PARAM_TRIGGER_THRESHOLD + gate;
+
+
+  // Gate-specific parameter ID: 0x0010 + gate number    uint32_t threshold = db_to_threshold_(db_value);  // Convert dB value to raw threshold    db_value = std::max(0.0f, std::min(95.0f, db_value));        uint8_t c;
+        read_byte(&c);
+
+
+
+
+
+  // Clamp dB value to valid range (0-95 dB according to documentation)
+    }    return false;    ESP_LOGE(TAG, "Invalid gate index %d (must be 0-15)", gate);
+
+  if (gate >= 16) {
+
+
+
+    ESP_LOGI(TAG, "Setting motion threshold for gate %d to %.1f dB", gate, db_value);
+bool HLKLD2402Component::set_motion_threshold(uint8_t gate, float db_value) {
+
+// Update the threshold setting methods to use batch operations for efficiency}  return (success_count > 0);
+
+
+
+  // Return success if at least some parameters were set    exit_config_mode_();  // Exit config mode
+
+
+    }    ESP_LOGW(TAG, "Failed to save batch parameter configuration");  } else {
+
+
+    ESP_LOGI(TAG, "Successfully saved batch parameter configuration");  if (save_success) {  bool save_success = save_configuration_();
+
+
+
+  // Save configuration after setting all parameters    }    }      ESP_LOGW(TAG, "Failed to send parameter 0x%04X", param_id);      }
+    } else {

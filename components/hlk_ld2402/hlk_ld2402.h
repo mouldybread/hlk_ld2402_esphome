@@ -170,54 +170,58 @@ public:
     get_all_micromotion_thresholds();
   }
 
+  // Add new methods for setting multiple thresholds at onceew batch parameter setting method
+  bool set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds);const std::vector<std::pair<uint16_t, uint32_t>> &params);
+  bool set_micromotion_thresholds(const std::map<uint8_t, float> &gate_thresholds);
+  
 protected:
   bool enter_config_mode_();
   bool enter_config_mode_quick_();  // New quick entry method
-  bool exit_config_mode_();
-  bool send_command_(uint16_t command, const uint8_t *data = nullptr, size_t len = 0);
+  bool exit_config_mode_(); = nullptr, size_t len = 0);
+  bool send_command_(uint16_t command, const uint8_t *data = nullptr, size_t len = 0);t8_t> &response, uint32_t timeout_ms = 1000);  // Added timeout parameter
   bool read_response_(std::vector<uint8_t> &response, uint32_t timeout_ms = 1000);  // Added timeout parameter
-  bool set_parameter_(uint16_t param_id, uint32_t value);
+  bool set_parameter_(uint16_t param_id, uint32_t value);2_t &value);
   bool get_parameter_(uint16_t param_id, uint32_t &value);
-  bool set_work_mode_(uint32_t mode);
+  bool set_work_mode_(uint32_t mode);;  // New method with timeout
   bool set_work_mode_with_timeout_(uint32_t mode, uint32_t timeout_ms);  // New method with timeout
   void process_line_(const std::string &line);
   void dump_hex_(const uint8_t *data, size_t len, const char* prefix);
-  bool write_frame_(const std::vector<uint8_t> &frame);  // New method
-  void get_firmware_version_();  // Add the missing function declaration
-  void begin_passive_version_detection_();  // New method for passive detection
+  bool write_frame_(const std::vector<uint8_t> &frame);  // New methodvoid get_firmware_version_();  // Add the missing function declaration
+  void get_firmware_version_();  // Add the missing function declarationdetection_();  // New method for passive detection
+  void begin_passive_version_detection_();  // New method for passive detectionde_();  // New method to publish the current operating mode
   void publish_operating_mode_();  // New method to publish the current operating mode
   
-  bool save_configuration_();
+  bool save_configuration_();  bool enable_auto_gain_();
   bool enable_auto_gain_();
   bool get_serial_number_hex_();
   bool get_serial_number_char_();
-
+  // Convert dB value to raw threshold
   // Convert dB value to raw threshold
   uint32_t db_to_threshold_(float db_value);
   float threshold_to_db_(uint32_t threshold);
 
-  bool parse_data_frame_(const std::vector<uint8_t> &frame_data);
-  bool process_distance_frame_(const std::vector<uint8_t> &frame_data);
-  bool process_engineering_data_(const std::vector<uint8_t> &frame_data);
-  bool process_engineering_from_distance_frame_(const std::vector<uint8_t> &frame_data); // New method
-  
+  bool parse_data_frame_(const std::vector<uint8_t> &frame_data);bool process_distance_frame_(const std::vector<uint8_t> &frame_data);
+  bool process_distance_frame_(const std::vector<uint8_t> &frame_data);8_t> &frame_data);
+  bool process_engineering_data_(const std::vector<uint8_t> &frame_data);&frame_data); // New method
+  bool process_engineering_from_distance_frame_(const std::vector<uint8_t> &frame_data); // New method  
+  ept detection status
   // Update method signature to accept detection status
   void update_binary_sensors_(float distance_cm, uint8_t detection_status);
-
-  // Batch parameter reading method
+ch parameter reading method
+  // Batch parameter reading method> &param_ids, std::vector<uint32_t> &values);
   bool get_parameters_batch_(const std::vector<uint16_t> &param_ids, std::vector<uint32_t> &values);
-
-private:
+ivate:
+private:hould be 1s
   // According to manual, response timeout should be 1s
   static const uint32_t RESPONSE_TIMEOUT_MS = 1000;
   
   sensor::Sensor *distance_sensor_{nullptr};
-  sensor::Sensor *calibration_progress_sensor_{nullptr};
+  sensor::Sensor *calibration_progress_sensor_{nullptr};binary_sensor::BinarySensor *presence_binary_sensor_{nullptr};
   binary_sensor::BinarySensor *presence_binary_sensor_{nullptr};
-  binary_sensor::BinarySensor *motion_binary_sensor_{nullptr};
+  binary_sensor::BinarySensor *motion_binary_sensor_{nullptr};{nullptr};
   binary_sensor::BinarySensor *power_interference_binary_sensor_{nullptr};
-  
-  text_sensor::TextSensor *firmware_version_text_sensor_{nullptr};
+  firmware_version_text_sensor_{nullptr};
+  text_sensor::TextSensor *firmware_version_text_sensor_{nullptr};or *operating_mode_text_sensor_{nullptr};
   text_sensor::TextSensor *operating_mode_text_sensor_{nullptr};
   
   float max_distance_{5.0};
@@ -228,25 +232,28 @@ private:
   bool power_interference_detected_{false};
   uint32_t last_calibration_status_{0};
   bool calibration_in_progress_{false};
-  uint32_t last_calibration_check_{0};   // Time of last calibration check
+  uint32_t last_calibration_check_{0};   // Time of last calibration check00)
   uint32_t calibration_progress_{0};     // Current calibration progress (0-100)
   std::string serial_number_; // Add field to store serial number
   std::string operating_mode_{"Normal"};  // Track the current operating mode
   uint32_t last_distance_update_{0};   // Time of last distance sensor update
   uint32_t distance_throttle_ms_{2000}; // Default throttle of 2 seconds
-  uint32_t last_engineering_update_{0}; // Time of last engineering data update
-  uint32_t engineering_throttle_ms_{2000}; // Engineering data throttle (2 seconds)
-  std::vector<sensor::Sensor *> energy_gate_sensors_; // Store gate sensors
+  uint32_t last_engineering_update_{0}; // Time of last engineering data updateuint32_t engineering_throttle_ms_{2000}; // Engineering data throttle (2 seconds)
+  uint32_t engineering_throttle_ms_{2000}; // Engineering data throttle (2 seconds)_gate_sensors_; // Store gate sensors
+  std::vector<sensor::Sensor *> energy_gate_sensors_; // Store gate sensors engineering data processing
   bool engineering_data_enabled_{false}; // Flag to enable engineering data processing
-  
   // Add storage for threshold sensors
-  std::vector<sensor::Sensor *> motion_threshold_sensors_;
+  // Add storage for threshold sensorsion_threshold_sensors_;
+  std::vector<sensor::Sensor *> motion_threshold_sensors_;reshold_sensors_;
   std::vector<sensor::Sensor *> micromotion_threshold_sensors_;
-  
   // Add cache for threshold values
-  std::vector<float> motion_threshold_values_;
+  // Add cache for threshold values  std::vector<float> motion_threshold_values_;
+  std::vector<float> motion_threshold_values_;motion_threshold_values_;
   std::vector<float> micromotion_threshold_values_;
-};
 
+
+
+
+}  // namespace esphome}  // namespace hlk_ld2402};
 }  // namespace hlk_ld2402
 }  // namespace esphome
