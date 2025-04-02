@@ -23,48 +23,11 @@ void HLKLD2402Component::setup() {
     read_byte(&c);
   }
 
-  // IMPORTANT ADDITION: Ensure the device starts in normal mode
-  // This prevents issues with leftover engineering mode from previous sessions
-  ESP_LOGI(TAG, "Setting device to normal mode on startup...");
-  
-  // Enter config mode - use multiple attempts as device may be in an inconsistent state
-  bool config_success = false;
-  for (int attempt = 0; attempt < 3; attempt++) {
-    ESP_LOGI(TAG, "Startup config mode attempt %d", attempt + 1);
-    if (enter_config_mode_()) {
-      config_success = true;
-      break;
-    }
-    delay(500);
-  }
-  
-  if (config_success) {
-    // Set work mode to normal
-    if (set_work_mode_(MODE_NORMAL)) {
-      ESP_LOGI(TAG, "Successfully initialized device to normal mode");
-    } else {
-      ESP_LOGW(TAG, "Failed to set normal mode, but continuing with initialization");
-    }
-    
-    // Always exit config mode
-    exit_config_mode_();
-    delay(200);
-  } else {
-    ESP_LOGW(TAG, "Failed to enter config mode to initialize normal mode, continuing anyway");
-  }
-
   // Initialize but don't touch the device if we don't need to
   // The logs show the device is already sending data correctly
   // Skip configuration and just set up sensors
   ESP_LOGI(TAG, "LD2402 appears to be sending data already. Skipping additional configuration.");
   ESP_LOGI(TAG, "Use the buttons to manually check firmware version or power interference.");
-  
-  // Don't check power interference immediately - use a delayed operation
-  // Remove the warning about delayed checks since we won't do them automatically
-  // ESP_LOGI(TAG, "Will check firmware version after 20 seconds");
-  
-  // Remove the immediate firmware version check - it will happen after 60 seconds
-  // get_firmware_version_();
   
   // Set a default version - this will be displayed until we can determine the actual version
   if (firmware_version_text_sensor_ != nullptr) {
