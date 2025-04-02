@@ -1268,7 +1268,7 @@ bool HLKLD2402Component::get_parameter_(uint16_t param_id, uint32_t &value) {
   } else if (response.size() >= 2) {
     // Shorter response, but possibly valid - use first 2 bytes
     value = response[0] | (response[1] << 8);
-    ESP_LOGW(TAG, "Short parameter response, using value: %u", value);
+    ESP_LOGW(TAG, "Short parameter response, using value: %u");
     return true;
   }
   
@@ -1967,7 +1967,8 @@ void HLKLD2402Component::factory_reset() {
   set_parameter_(PARAM_TRIGGER_THRESHOLD, 30);  // 30 = ~3.0 coefficient
   delay(200);  
   
-  set_parameter_(PARAM_MICRO_THRESHOLD, 30);
+  // Fix: Change PARAM_MICRO_THRESHOLD to PARAM_STATIC_THRESHOLD
+  set_parameter_(PARAM_STATIC_THRESHOLD, 30);
   delay(200);  
   
   // Save configuration
@@ -2284,6 +2285,39 @@ bool HLKLD2402Component::set_micromotion_thresholds(const std::map<uint8_t, floa
   return set_parameters_batch(params);
 }
 
+// Fix: Rename function to match header declaration
+bool HLKLD2402Component::set_static_thresholds(const std::map<uint8_t, float> &gate_thresholds) {
+  if (gate_thresholds.empty()) {
+    ESP_LOGW(TAG, "No static thresholds to set");
+    return false;
+  }
+  
+  std::vector<std::pair<uint16_t, uint32_t>> params;
+  
+  for (const auto &entry : gate_thresholds) {
+    uint8_t gate = entry.first;
+    float db_value = entry.second;
+    
+    if (gate >= 16) {
+      ESP_LOGW(TAG, "Skipping invalid gate index %d", gate);
+      continue;
+    }
+    
+    // Clamp dB value and convert to raw threshold
+    db_value = std::max(0.0f, std::min(95.0f, db_value));
+    uint32_t threshold = db_to_threshold_(db_value);
+    
+    // Gate-specific parameter ID
+    uint16_t param_id = PARAM_STATIC_THRESHOLD + gate;
+    params.push_back(std::make_pair(param_id, threshold));
+    
+    ESP_LOGI(TAG, "Adding static threshold for gate %d: %.1f dB (raw: %u)", 
+             gate, db_value, threshold);
+  }
+  
+  return set_parameters_batch(params);
+}
+
 // Add new method for batch parameter setting
 bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16_t, uint32_t>> &params) {
   ESP_LOGI(TAG, "Setting %d parameters in batch mode", params.size());
@@ -2483,6 +2517,51 @@ bool HLKLD2402Component::get_all_micromotion_thresholds() {
       if (i < micromotion_threshold_sensors_.size() && micromotion_threshold_sensors_[i] != nullptr) {
         micromotion_threshold_sensors_[i]->publish_state(db_value);
         ESP_LOGI(TAG, "Published micromotion threshold for gate %d: %.1f dB", i, db_value);
+      }
+    }
+  }
+  
+  exit_config_mode_();
+  return success;
+}
+
+// Fix: Rename function to match header declaration
+bool HLKLD2402Component::get_all_static_thresholds() {
+  ESP_LOGI(TAG, "Reading all static thresholds");
+  
+  if (!enter_config_mode_()) {
+    ESP_LOGE(TAG, "Failed to enter config mode for reading thresholds");
+    return false;
+  }
+  
+  // Prepare parameter IDs for static threshold gates (0x0030 to 0x003F)
+  std::vector<uint16_t> param_ids;
+  for (uint16_t i = 0; i < 16; i++) {
+    param_ids.push_back(PARAM_STATIC_THRESHOLD + i);
+  }
+  
+  std::vector<uint32_t> values;
+  bool success = get_parameters_batch_(param_ids, values);
+  
+  if (success) {
+    ESP_LOGI(TAG, "Static thresholds for all gates:");
+    
+    // Resize the cache vector if needed
+    if (static_threshold_values_.size() < values.size()) {
+      static_threshold_values_.resize(values.size(), 0);
+    }
+    
+    // Process and publish each value
+    for (size_t i = 0; i < values.size() && i < 16; i++) {
+      float db_value = threshold_to_db_(values[i]);
+      static_threshold_values_[i] = db_value;
+      
+      ESP_LOGI(TAG, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);
+      
+      // Publish to sensor if available
+      if (i < static_threshold_sensors_.size() && static_threshold_sensors_[i] != nullptr) {
+        static_threshold_sensors_[i]->publish_state(db_value);
+        ESP_LOGI(TAG, "Published static threshold for gate %d: %.1f dB", i, db_value);
       }
     }
   }

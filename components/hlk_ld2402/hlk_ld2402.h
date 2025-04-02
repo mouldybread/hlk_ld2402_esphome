@@ -60,7 +60,6 @@ static const esphome::uart::UARTParityOptions UART_PARITY = esphome::uart::UART_
 static constexpr float MAX_THEORETICAL_RANGE = 10.0f;  // Max 10m for movement
 static constexpr float MOVEMENT_RANGE = 10.0f;         // Max 10m for movement
 static constexpr float STATIC_RANGE = 6.0f;            // Max 6m for static detection
-static constexpr float STATIC_RANGE = 5.0f;            // Max 5m for static detection
 static constexpr float DISTANCE_PRECISION = 0.15f;     // ±0.15m accuracy
 static constexpr float DISTANCE_GATE_SIZE = 0.7f;      // 0.7m per gate
 static const uint8_t MAX_GATES = 32;                   // Hardware maximum gates
