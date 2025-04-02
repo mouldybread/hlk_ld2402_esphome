@@ -760,11 +760,14 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     // Update presence binary sensor
     update_binary_sensors_(min_distance_cm, detection_status);
     
-    // Update motion binary sensor based on byte 7 value
+    // Update motion binary sensor using both approaches for reliability
     if (this->motion_binary_sensor_ != nullptr) {
-      bool is_motion = (motion_value > 100);
+      // Use both detection_status and motion_value for more reliable detection
+      bool is_motion = (detection_status == 1) || (motion_value > 100);
+      
       this->motion_binary_sensor_->publish_state(is_motion);
-      ESP_LOGI(TAG, "Motion detection: %s (byte 7 value: %u)", is_motion ? "ACTIVE" : "INACTIVE", motion_value);
+      ESP_LOGI(TAG, "Motion detection: %s (status byte: 0x%02X, motion value: %u)", 
+               is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
     }
     
     // For distance sensor, check throttling

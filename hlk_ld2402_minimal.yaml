@@ -86,8 +86,8 @@ sensor:
     unit_of_measurement: "cm"
     accuracy_decimals: 1
     throttle: 2000ms  # 2 second throttle for smoother readings
-
-# Only include essential calibration button
+    
+  # Only include essential calibration button
 button:
   - platform: template
     name: "Calibrate"
