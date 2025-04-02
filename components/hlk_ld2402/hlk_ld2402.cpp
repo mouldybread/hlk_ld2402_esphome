@@ -690,9 +690,17 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   // If we found a valid distance
   if (min_distance_cm > 0) {
     // Extract the detection status from the frame data
+    // FIX: According to documentation, detection status is at index 6, not 8
     uint8_t detection_status = 0;
-    if (frame_data.size() >= 9) {
-      detection_status = frame_data[8];
+    if (frame_data.size() >= 7) {  // Changed from 9 to 7 to ensure we have enough data
+      detection_status = frame_data[6];  // Changed from 8 to 6 - this is the detection status byte
+      
+      // Add more debug logging to help troubleshoot
+      ESP_LOGI(TAG, "Detection status byte: 0x%02X (%u) - %s", 
+               detection_status, detection_status,
+               detection_status == 0 ? "no person" : 
+               detection_status == 1 ? "person moving" : 
+               detection_status == 2 ? "stationary person" : "unknown");
     }
     
     // Log with more detailed status information
