@@ -14,11 +14,6 @@ void HLKLD2402Component::setup() {
   parent->set_data_bits(8);
   parent->set_parity(esphome::uart::UART_CONFIG_PARITY_NONE);
 
-  // Try sending some test data to verify TX functionality
-  write_str("TEST\n");
-  ESP_LOGI(TAG, "Sent test string to verify TX line");
-  delay(500);
-  
   // Flush any residual data
   ESP_LOGI(TAG, "Flushing UART");
   flush();
