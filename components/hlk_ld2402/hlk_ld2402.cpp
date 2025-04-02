@@ -4,8 +4,6 @@
 namespace esphome {
 namespace hlk_ld2402 {
 
-static const char *const TAG = "hlk_ld2402";
-
 void HLKLD2402Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402...");
   
