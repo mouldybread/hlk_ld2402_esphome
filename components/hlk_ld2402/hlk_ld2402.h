@@ -10,6 +10,9 @@
 namespace esphome {
 namespace hlk_ld2402 {
 
+// Add the TAG definition for logging
+static const char *const TAG = "hlk_ld2402";
+
 static const uint8_t FRAME_HEADER[] = {0xFD, 0xFC, 0xFB, 0xFA};
 static const uint8_t FRAME_FOOTER[] = {0x04, 0x03, 0x02, 0x01};
 
