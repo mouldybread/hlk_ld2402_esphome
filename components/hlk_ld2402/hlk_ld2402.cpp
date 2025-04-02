@@ -546,6 +546,118 @@ void HLKLD2402Component::loop() {
       }
     }
   }
+  
+  // Check if we need to auto-commit pending parameter changes
+  if (batch_update_in_progress_ && !pending_parameters_.empty()) {
+    uint32_t now = millis();
+    if (now - last_parameter_update_ > auto_commit_delay_ms_) {
+      ESP_LOGI(TAG, "Auto-committing %d pending parameter changes after timeout", pending_parameters_.size());
+      commit_batch_update();
+    }
+  }
+}
+
+void HLKLD2402Component::start_batch_update() {
+  ESP_LOGI(TAG, "Starting batch parameter update");
+  batch_update_in_progress_ = true;
+  pending_parameters_.clear();
+}
+
+void HLKLD2402Component::commit_batch_update() {
+  if (!batch_update_in_progress_ || pending_parameters_.empty()) {
+    ESP_LOGI(TAG, "No pending parameter changes to commit");
+    batch_update_in_progress_ = false;
+    return;
+  }
+  
+  ESP_LOGI(TAG, "Committing %d parameter changes", pending_parameters_.size());
+  
+  // Apply all pending parameters using our optimized batch update
+  bool success = set_parameters_batch(pending_parameters_);
+  
+  if (success) {
+    ESP_LOGI(TAG, "Successfully committed all parameter changes");
+  } else {
+    ESP_LOGW(TAG, "Failed to commit some parameter changes");
+  }
+  
+  // Clear the pending list and reset state
+  pending_parameters_.clear();
+  batch_update_in_progress_ = false;
+}
+
+void HLKLD2402Component::cancel_batch_update() {
+  ESP_LOGI(TAG, "Cancelled batch update with %d pending changes", pending_parameters_.size());
+  pending_parameters_.clear();
+  batch_update_in_progress_ = false;
+}
+
+bool HLKLD2402Component::deferred_set_parameter(uint16_t param_id, uint32_t value) {
+  // Start batch mode if not already started
+  if (!batch_update_in_progress_) {
+    start_batch_update();
+  }
+  
+  // Check if we're updating an existing parameter in the pending list
+  for (auto &param : pending_parameters_) {
+    if (param.first == param_id) {
+      // Update existing parameter
+      param.second = value;
+      ESP_LOGI(TAG, "Updated pending parameter 0x%04X to %u", param_id, value);
+      last_parameter_update_ = millis();
+      return true;
+    }
+  }
+  
+  // Add new parameter to pending list
+  pending_parameters_.push_back(std::make_pair(param_id, value));
+  ESP_LOGI(TAG, "Added parameter 0x%04X = %u to pending updates (total: %d)", 
+           param_id, value, pending_parameters_.size());
+  
+  last_parameter_update_ = millis();
+  return true;
+}
+
+bool HLKLD2402Component::deferred_set_motion_threshold(uint8_t gate, float db_value) {
+  if (gate >= 16) {
+    ESP_LOGE(TAG, "Invalid gate index %d (must be 0-15)", gate);
+    return false;
+  }
+  
+  // Clamp dB value to valid range
+  db_value = std::max(0.0f, std::min(95.0f, db_value));
+  
+  // Convert dB value to raw threshold
+  uint32_t threshold = db_to_threshold_(db_value);
+  
+  // Gate-specific parameter ID
+  uint16_t param_id = PARAM_TRIGGER_THRESHOLD + gate;
+  
+  ESP_LOGI(TAG, "Deferring motion threshold update for gate %d: %.1f dB (raw: %u)", 
+           gate, db_value, threshold);
+           
+  return deferred_set_parameter(param_id, threshold);
+}
+
+bool HLKLD2402Component::deferred_set_static_threshold(uint8_t gate, float db_value) {
+  if (gate >= 16) {
+    ESP_LOGE(TAG, "Invalid gate index %d (must be 0-15)", gate);
+    return false;
+  }
+  
+  // Clamp dB value to valid range
+  db_value = std::max(0.0f, std::min(95.0f, db_value));
+  
+  // Convert dB value to raw threshold
+  uint32_t threshold = db_to_threshold_(db_value);
+  
+  // Gate-specific parameter ID
+  uint16_t param_id = PARAM_STATIC_THRESHOLD + gate;
+  
+  ESP_LOGI(TAG, "Deferring static threshold update for gate %d: %.1f dB (raw: %u)", 
+           gate, db_value, threshold);
+           
+  return deferred_set_parameter(param_id, threshold);
 }
 
 // Add new method to parse distance data frames

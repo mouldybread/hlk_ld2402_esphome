@@ -205,6 +205,19 @@ public:
   void get_firmware_version_();  // Keep this declaration only once
   // Removed duplicate check_power_interference() declaration
 
+  // New methods for deferred parameter updates
+  void start_batch_update();
+  void commit_batch_update();
+  void cancel_batch_update();
+  
+  // Modified parameter setting methods for deferred updates
+  bool deferred_set_parameter(uint16_t param_id, uint32_t value);
+  bool deferred_set_motion_threshold(uint8_t gate, float db_value);
+  bool deferred_set_static_threshold(uint8_t gate, float db_value);
+  
+  // For automation support
+  void set_auto_commit_delay(uint32_t delay_ms) { auto_commit_delay_ms_ = delay_ms; }
+
 protected:
   bool enter_config_mode_();
   bool enter_config_mode_quick_();  // New quick entry method
@@ -280,6 +293,11 @@ private:
   std::vector<float> motion_threshold_values_;
   std::vector<float> static_threshold_values_;
 
+  // Parameter batching
+  std::vector<std::pair<uint16_t, uint32_t>> pending_parameters_;
+  bool batch_update_in_progress_ = false;
+  uint32_t last_parameter_update_ = 0;
+  uint32_t auto_commit_delay_ms_ = 1000; // Default to 1 second
 };
 
 }  // namespace hlk_ld2402
