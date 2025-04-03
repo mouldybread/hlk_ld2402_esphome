@@ -1076,7 +1076,7 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   if (dist_pos != std::string::npos) {
     // Extract everything after "distance:"
     std::string distance_str = line.substr(dist_pos + 9);
-    ESP_LOGV(TAG, "Found distance data: '%s'", distance_str.c_str());
+    ESP_LOGI(TAG, "Found text-based distance data: '%s'", distance_str.c_str());
     
     // Remove any trailing non-numeric characters
     size_t pos = distance_str.find_first_not_of("0123456789.");
@@ -1130,6 +1130,11 @@ void HLKLD2402Component::process_line_(const std::string &line) {
           line.find("static") != std::string::npos) {
         detection_status = 2;
       }
+    } else {
+      // For "distance:XXX" format from engineering mode, we assume presence when distance > 0
+      detection_status = (distance_cm > 0) ? 1 : 0;
+      ESP_LOGI(TAG, "Engineering mode distance detection: Assuming %s based on distance %.1f cm", 
+              (detection_status > 0) ? "presence" : "no presence", distance_cm);
     }
     
     // Always update binary sensors with detected status
@@ -1146,10 +1151,10 @@ void HLKLD2402Component::process_line_(const std::string &line) {
       bool significant_change = fabsf(distance_cm - last_reported_distance) > 10.0f;
       
       if (significant_change) {
-        ESP_LOGI(TAG, "Detected distance (text): %.1f cm", distance_cm);
+        ESP_LOGI(TAG, "Text-based distance update: %.1f cm", distance_cm);
         last_reported_distance = distance_cm;
       } else {
-        ESP_LOGV(TAG, "Detected distance (text): %.1f cm", distance_cm);
+        ESP_LOGD(TAG, "Text-based distance update: %.1f cm", distance_cm);
       }
       
       this->distance_sensor_->publish_state(distance_cm);
