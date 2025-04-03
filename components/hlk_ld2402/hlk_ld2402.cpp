@@ -2192,7 +2192,6 @@ bool HLKLD2402Component::exit_config_mode_() {
   // Clear any pending data to ensure clean state
   flush();
   while (available()) {
-  while (available()) {
     uint8_t c;
     read_byte(&c);
   }
