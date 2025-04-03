@@ -684,48 +684,9 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     return false;
   }
 
-  // Enhanced frame debugging with clear annotation of each byte's position
-  ESP_LOGI(TAG, "===== RADAR FRAME ANALYSIS =====");
-  ESP_LOGI(TAG, "Frame size: %d bytes", frame_data.size());
-  ESP_LOGI(TAG, "Expected format: [F4 F3 F2 F1][83][LEN-L][LEN-H][STATUS][DATA...]");
-  
-  // Output bytes with indices for easier analysis
-  char hex_buf[256] = {0};
-  char index_buf[256] = {0};
-  
-  // Generate index markers
-  for (size_t i = 0; i < std::min(frame_data.size(), size_t(30)); i++) {
-    sprintf(index_buf + (i*3), "%2d ", (int)i);
-  }
-  ESP_LOGI(TAG, "Byte idx: %s", index_buf);
-  
-  // Generate hex values
-  for (size_t i = 0; i < std::min(frame_data.size(), size_t(30)); i++) {
-    sprintf(hex_buf + (i*3), "%02X ", frame_data[i]);
-  }
-  ESP_LOGI(TAG, "Hex data: %s", hex_buf);
-  
-  // Annotate specific bytes with their meanings
-  ESP_LOGI(TAG, "Interpretation:");
-  ESP_LOGI(TAG, "- Bytes 0-3: Header = %02X %02X %02X %02X (should be F4 F3 F2 F1)", 
-           frame_data[0], frame_data[1], frame_data[2], frame_data[3]);
-  ESP_LOGI(TAG, "- Byte  4: Type = %02X (83 = distance frame)", 
-           frame_data[4]);
-  ESP_LOGI(TAG, "- Bytes 5-6: Length = %02X %02X (%d bytes)", 
-           frame_data[5], frame_data[6], frame_data[5] | (frame_data[6] << 8));
-  
-  // Let's check EVERY possible detection status byte position from 7-10
-  for (int i = 7; i < std::min(size_t(11), frame_data.size()); i++) {
-    ESP_LOGI(TAG, "- Byte %2d: Value = %02X (if status byte: %s)", 
-             i, frame_data[i],
-             frame_data[i] == 0 ? "no person" : 
-             frame_data[i] == 1 ? "person moving" : 
-             frame_data[i] == 2 ? "stationary person" : "unknown");
-  }
-  
   // Parse the data length from the frame
   uint16_t data_length = frame_data[5] | (frame_data[6] << 8);
-  ESP_LOGI(TAG, "Frame data length: %u bytes", data_length);
+  ESP_LOGD(TAG, "Frame data length: %u bytes", data_length);
   
   // The correct presence status is in byte 8 (index 7), documented through testing
   uint8_t detection_status = (frame_data.size() > 8) ? frame_data[8] : 0;
@@ -777,9 +738,12 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     uint8_t motion_value = (frame_data.size() > 9) ? frame_data[9] : 0;
     bool is_motion = (detection_status == 1) || (motion_value > 100);
     
-    this->motion_binary_sensor_->publish_state(is_motion);
-    ESP_LOGI(TAG, "Motion detection: %s (status byte: 0x%02X, motion value: %u)", 
-             is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
+    // Only update if state has changed
+    if (this->motion_binary_sensor_->state != is_motion) {
+      this->motion_binary_sensor_->publish_state(is_motion);
+      ESP_LOGI(TAG, "Motion detection changed: %s (status byte: 0x%02X, motion value: %u)", 
+               is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
+    }
   }
   
   // In engineering mode, don't update the distance sensor from binary frame
@@ -1010,20 +974,25 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     // - Non-zero values: Presence detected
     bool is_presence = (detection_status > 0);
     
-    // IMPORTANT DEBUG: Log the raw byte value in hex to confirm what's being received
-    ESP_LOGI(TAG, "PRESENCE DETECTION: Raw status code: 0x%02X (%d decimal) at %.1f cm", 
-             detection_status, detection_status, distance_cm);
-    
-    // Log before updating to ensure we see what's happening
-    ESP_LOGI(TAG, "Updating presence sensor to %s (status code 0x%02X) at distance %.1f cm", 
-             is_presence ? "ON" : "OFF", detection_status, distance_cm);
-    
-    this->presence_binary_sensor_->publish_state(is_presence);
-    
-    if (is_presence) {
-      ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
+    // Only log and update when state changes
+    if (this->presence_binary_sensor_->state != is_presence) {
+      // Log state change at INFO level
+      ESP_LOGI(TAG, "Presence changed: %s (status code 0x%02X) at distance %.1f cm", 
+               is_presence ? "ON" : "OFF", detection_status, distance_cm);
+      
+      // Update the binary sensor state
+      this->presence_binary_sensor_->publish_state(is_presence);
+      
+      // Additional detailed log for new state
+      if (is_presence) {
+        ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
+      } else {
+        ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
+      }
     } else {
-      ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
+      // Log more frequent updates at DEBUG level
+      ESP_LOGD(TAG, "Presence unchanged: %s at %.1f cm", 
+               is_presence ? "ON" : "OFF", distance_cm);
     }
   } else {
     ESP_LOGW(TAG, "Presence binary sensor not configured!");
@@ -1036,9 +1005,10 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   
   // Handle OFF status
   if (line == "OFF") {
-    ESP_LOGI(TAG, "No target detected");
-    if (this->presence_binary_sensor_ != nullptr) {
+    ESP_LOGD(TAG, "No target detected");
+    if (this->presence_binary_sensor_ != nullptr && this->presence_binary_sensor_->state) {
       this->presence_binary_sensor_->publish_state(false);
+      ESP_LOGI(TAG, "Presence changed: OFF (from text data)");
     }
         
     // Only update the distance sensor if not throttled
@@ -1123,7 +1093,7 @@ void HLKLD2402Component::process_line_(const std::string &line) {
               (detection_status > 0) ? "presence" : "no presence", distance_cm);
     }
     
-    // Always update binary sensors with detected status
+    // Always update binary sensors with detected status - but now with anti-redundancy
     update_binary_sensors_(distance_cm, detection_status);
     
     // For distance sensor, apply throttling
