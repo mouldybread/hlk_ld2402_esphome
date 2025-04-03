@@ -13,9 +13,6 @@ from esphome.const import (
 from . import HLKLD2402Component, CONF_HLK_LD2402_ID
 
 CONF_THROTTLE = "throttle"
-# Add these missing constant definitions
-CONF_PRESENCE_THROTTLE = "presence_throttle"
-CONF_MOTION_THROTTLE = "motion_throttle"
 CONF_CALIBRATION_PROGRESS = "calibration_progress"
 CONF_ENERGY_GATE = "energy_gate"  # Energy gate sensors
 CONF_GATE_INDEX = "gate_index"     # Gate number (0-13)
@@ -28,8 +25,6 @@ CONFIG_SCHEMA = sensor.sensor_schema().extend({
     cv.GenerateID(): cv.declare_id(sensor.Sensor),
     cv.Required(CONF_HLK_LD2402_ID): cv.use_id(HLKLD2402Component),
     cv.Optional(CONF_THROTTLE): cv.positive_time_period_milliseconds,
-    cv.Optional(CONF_PRESENCE_THROTTLE): cv.positive_time_period_milliseconds,  # Add to schema
-    cv.Optional(CONF_MOTION_THROTTLE): cv.positive_time_period_milliseconds,    # Add to schema
     cv.Optional(CONF_CALIBRATION_PROGRESS, default=False): cv.boolean,
     cv.Optional(CONF_ENERGY_GATE): cv.Schema({
         cv.Required(CONF_GATE_INDEX): cv.int_range(0, 14),  # Should be (0, 14) for 15 gates
