@@ -2123,537 +2123,537 @@ bool HLKLD2402Component::enter_config_mode_() {
     ESP_LOGW(TAG, "No valid response to config mode command, retrying");
     delay(500);  // Wait before retrying
   }
-  ent operating mode
-  ESP_LOGE(TAG, "Failed to enter config mode after 3 attempts");de_;
+  
+  ESP_LOGE(TAG, "Failed to enter config mode after 3 attempts");
   return false;
-}command
- (send_command_(CMD_DISABLE_CONFIG)) {
-bool HLKLD2402Component::exit_config_mode_() {oo long
+}
+
+bool HLKLD2402Component::exit_config_mode_() {
   if (!config_mode_)
     return true;
-    e but don't wait too long
+    
   ESP_LOGD(TAG, "Exiting config mode...");
-  _response = read_response_(response, 300);
+  
+  // Remember the current operating mode
+  std::string previous_mode = operating_mode_;
+  
   // Send exit command
   if (send_command_(CMD_DISABLE_CONFIG)) {
-    // Brief wait for response, but don't wait too long else {
-    delay(200);   // Don't treat this as an error - some firmware versions may not respond
-        ESP_LOGI(TAG, "No response to exit command - this may be normal");
+    // Brief wait for response, but don't wait too long
+    delay(200);
+    
     // Read any response but don't wait too long
     std::vector<uint8_t> response;
     bool got_response = read_response_(response, 300);
-    if (got_response) {// Always mark as exited regardless of response
+    if (got_response) {
       ESP_LOGI(TAG, "Got response to exit command");
     } else {
       // Don't treat this as an error - some firmware versions may not respond
-      ESP_LOGI(TAG, "No response to exit command - this may be normal");efault to "Normal" mode when exiting config mode
-    }/ Instead, use the previous operating mode if it was Engineering mode
-  }if (operating_mode_ == "Config") {
+      ESP_LOGI(TAG, "No response to exit command - this may be normal");
+    }
+  }
   
-  // Always mark as exited regardless of responseating_mode_ = "Engineering";
-  config_mode_ = false;eserving engineering mode after config mode exit");
+  // Always mark as exited regardless of response
+  config_mode_ = false;
   ESP_LOGI(TAG, "Left config mode");
-  de_ = "Normal";
-  // Update operating mode back to either Normal or Engineering   ESP_LOGI(TAG, "Returning to normal mode after config mode exit");
-  if (operating_mode_ == "Config") {  }
-    operating_mode_ = "Normal";  // Default to Normal when exiting config modeerating_mode_();
-    publish_operating_mode_(); }
-  }  
+  
+  // IMPORTANT CHANGE: Don't default to "Normal" mode when exiting config mode
+  // Instead, use the previous operating mode if it was Engineering mode
+  if (operating_mode_ == "Config") {
+    if (previous_mode == "Engineering") {
+      operating_mode_ = "Engineering";
+      ESP_LOGI(TAG, "Preserving engineering mode after config mode exit");
+    } else {
+      operating_mode_ = "Normal";
+      ESP_LOGI(TAG, "Returning to normal mode after config mode exit");
+    }
+    publish_operating_mode_();
+  }
   
   // Clear any pending data to ensure clean state
-  flush();while (available()) {
+  flush();
   while (available()) {
     uint8_t c;
     read_byte(&c);
   }
-  ode, we must actually re-enter it
-  return true;t to normal mode when exiting config
-}ng" && engineering_data_enabled_) {
-  ESP_LOGI(TAG, "Re-enabling engineering mode data stream after config mode");
+  
+  // If we were in engineering mode, we must actually re-enter it
+  // since the device likely reset to normal mode when exiting config
+  if (previous_mode == "Engineering" && engineering_data_enabled_) {
+    ESP_LOGI(TAG, "Re-enabling engineering mode data stream after config mode");
+    // Use a very brief delay to allow clean state
+    delay(100);
+    set_engineering_mode_direct();
+  }
+  
+  return true;
+}
+
 bool HLKLD2402Component::set_parameter_(uint16_t param_id, uint32_t value) {
   ESP_LOGD(TAG, "Setting parameter 0x%04X to %u", param_id, value);
-  ng_mode_direct();
+  
   uint8_t data[6];
   data[0] = param_id & 0xFF;
   data[1] = (param_id >> 8) & 0xFF;
   data[2] = value & 0xFF;
   data[3] = (value >> 8) & 0xFF;
-  data[4] = (value >> 16) & 0xFF;ameter_(uint16_t param_id, uint32_t value) {
-  data[5] = (value >> 24) & 0xFF;, value);
+  data[4] = (value >> 16) & 0xFF;
+  data[5] = (value >> 24) & 0xFF;
   
-  if (!send_command_(CMD_SET_PARAMS, data, sizeof(data))) {;
-    ESP_LOGE(TAG, "Failed to send set parameter command");ata[0] = param_id & 0xFF;
-    return false;data[1] = (param_id >> 8) & 0xFF;
+  if (!send_command_(CMD_SET_PARAMS, data, sizeof(data))) {
+    ESP_LOGE(TAG, "Failed to send set parameter command");
+    return false;
   }
-    & 0xFF;
+  
   // Add a small delay after sending command
   delay(100);
   
-  std::vector<uint8_t> response;)) {
-  if (!read_response_(response)) {  // Use default timeout  ESP_LOGE(TAG, "Failed to send set parameter command");
+  std::vector<uint8_t> response;
+  if (!read_response_(response)) {  // Use default timeout
     ESP_LOGE(TAG, "No response to set parameter command");
     return false;
   }
-  delay after sending command
-  // Log the response for debuggingelay(100);
+  
+  // Log the response for debugging
   char hex_buf[64] = {0};
   for (size_t i = 0; i < response.size() && i < 16; i++) {
-    sprintf(hex_buf + (i*3), "%02X ", response[i]);ponse)) {  // Use default timeout
-  }mand");
+    sprintf(hex_buf + (i*3), "%02X ", response[i]);
+  }
   ESP_LOGD(TAG, "Set parameter response: %s", hex_buf);
   
   // Do basic error checking without being too strict on validation
-  if (response.size() < 2) {nse for debugging
+  if (response.size() < 2) {
     ESP_LOGE(TAG, "Response too short");
-    return false; 0; i < response.size() && i < 16; i++) {
-  } sprintf(hex_buf + (i*3), "%02X ", response[i]);
+    return false;
   }
+  
   // Check for known error patterns
   bool has_error = false;
-  if (response[0] == 0xFF && response[1] == 0xFF) { // Do basic error checking without being too strict on validation
-    has_error = true;  // This typically indicates an error  if (response.size() < 2) {
+  if (response[0] == 0xFF && response[1] == 0xFF) {
+    has_error = true;  // This typically indicates an error
   }
   
   if (has_error) {
     ESP_LOGE(TAG, "Parameter setting failed with error response");
-    return false;n error patterns
+    return false;
   }
-   == 0xFF && response[1] == 0xFF) {
-  // For other responses, be permissive and assume success has_error = true;  // This typically indicates an error
-  return true;}
+  
+  // For other responses, be permissive and assume success
+  return true;
 }
 
-// Add these methods to configure thresholds for specific gates  ESP_LOGE(TAG, "Parameter setting failed with error response");
+// Add these methods to configure thresholds for specific gates
 bool HLKLD2402Component::set_motion_threshold(uint8_t gate, float db_value) {
   ESP_LOGI(TAG, "Setting motion threshold for gate %d to %.1f dB", gate, db_value);
   
-  if (gate >= 16) {ccess
+  if (gate >= 16) {
     ESP_LOGE(TAG, "Invalid gate index %d (must be 0-15)", gate);
     return false;
   }
-  cific gates
-  // Clamp dB value to valid range (0-95 dB according to documentation)te, float db_value) {
-  db_value = std::max(0.0f, std::min(95.0f, db_value));ESP_LOGI(TAG, "Setting motion threshold for gate %d to %.1f dB", gate, db_value);
   
-  // Convert dB value to raw threshold) {
+  // Clamp dB value to valid range (0-95 dB according to documentation)
+  db_value = std::max(0.0f, std::min(95.0f, db_value));
+  
+  // Convert dB value to raw threshold
   uint32_t threshold = db_to_threshold_(db_value);
   
   // Gate-specific parameter ID: 0x0010 + gate number
   uint16_t param_id = PARAM_TRIGGER_THRESHOLD + gate;
-  / Clamp dB value to valid range (0-95 dB according to documentation)
-  // Create a single parameter batchdb_value = std::max(0.0f, std::min(95.0f, db_value));
-  std::vector<std::pair<uint16_t, uint32_t>> params;
-  params.push_back(std::make_pair(param_id, threshold)); // Convert dB value to raw threshold
-    uint32_t threshold = db_to_threshold_(db_value);
-  bool success = set_parameters_batch(params);
-  if (success) { 0x0010 + gate number
-    ESP_LOGI(TAG, "Successfully set motion threshold for gate %d to %.1f dB (raw: %u)",ate;
-             gate, db_value, threshold);
-  } else {/ Create a single parameter batch
-    ESP_LOGE(TAG, "Failed to set motion threshold");std::vector<std::pair<uint16_t, uint32_t>> params;
-  }d));
   
-  return success;;
+  // Create a single parameter batch
+  std::vector<std::pair<uint16_t, uint32_t>> params;
+  params.push_back(std::make_pair(param_id, threshold));
+  
+  bool success = set_parameters_batch(params);
+  if (success) {
+    ESP_LOGI(TAG, "Successfully set motion threshold for gate %d to %.1f dB (raw: %u)", 
+             gate, db_value, threshold);
+  } else {
+    ESP_LOGE(TAG, "Failed to set motion threshold");
+  }
+  
+  return success;
 }
-t motion threshold for gate %d to %.1f dB (raw: %u)",
-bool HLKLD2402Component::set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds) {         gate, db_value, threshold);
+
+bool HLKLD2402Component::set_motion_thresholds(const std::map<uint8_t, float> &gate_thresholds) {
   if (gate_thresholds.empty()) {
     ESP_LOGW(TAG, "No motion thresholds to set");
     return false;
   }
-  turn success;
+  
   std::vector<std::pair<uint16_t, uint32_t>> params;
   
-  for (const auto &entry : gate_thresholds) { std::map<uint8_t, float> &gate_thresholds) {
-    uint8_t gate = entry.first; (gate_thresholds.empty()) {
-    float db_value = entry.second;sholds to set");
+  for (const auto &entry : gate_thresholds) {
+    uint8_t gate = entry.first;
+    float db_value = entry.second;
     
     if (gate >= 16) {
       ESP_LOGW(TAG, "Skipping invalid gate index %d", gate);
       continue;
     }
-    or (const auto &entry : gate_thresholds) {
-    // Clamp dB value and convert to raw threshold  uint8_t gate = entry.first;
+    
+    // Clamp dB value and convert to raw threshold
     db_value = std::max(0.0f, std::min(95.0f, db_value));
-    uint32_t threshold = db_to_threshold_(db_value);   
-        if (gate >= 16) {
+    uint32_t threshold = db_to_threshold_(db_value);
+    
     // Gate-specific parameter ID
     uint16_t param_id = PARAM_TRIGGER_THRESHOLD + gate;
     params.push_back(std::make_pair(param_id, threshold));
     
-    ESP_LOGI(TAG, "Adding motion threshold for gate %d: %.1f dB (raw: %u)", alue and convert to raw threshold
-             gate, db_value, threshold); db_value = std::max(0.0f, std::min(95.0f, db_value));
-  }  uint32_t threshold = db_to_threshold_(db_value);
+    ESP_LOGI(TAG, "Adding motion threshold for gate %d: %.1f dB (raw: %u)", 
+             gate, db_value, threshold);
+  }
   
-  return set_parameters_batch(params);  // Gate-specific parameter ID
-}LD + gate;
-pair(param_id, threshold));
+  return set_parameters_batch(params);
+}
+
 // Fix: Also need to modify set_micromotion_thresholds to use PARAM_STATIC_THRESHOLD
-bool HLKLD2402Component::set_static_thresholds(const std::map<uint8_t, float> &gate_thresholds) {ESP_LOGI(TAG, "Adding motion threshold for gate %d: %.1f dB (raw: %u)", 
-  if (gate_thresholds.empty()) {_value, threshold);
+bool HLKLD2402Component::set_static_thresholds(const std::map<uint8_t, float> &gate_thresholds) {
+  if (gate_thresholds.empty()) {
     ESP_LOGW(TAG, "No static thresholds to set");
     return false;
-  }urn set_parameters_batch(params);
+  }
   
   std::vector<std::pair<uint16_t, uint32_t>> params;
-   use PARAM_STATIC_THRESHOLD
-  for (const auto &entry : gate_thresholds) { std::map<uint8_t, float> &gate_thresholds) {
-    uint8_t gate = entry.first; (gate_thresholds.empty()) {
-    float db_value = entry.second;sholds to set");
+  
+  for (const auto &entry : gate_thresholds) {
+    uint8_t gate = entry.first;
+    float db_value = entry.second;
     
     if (gate >= 16) {
       ESP_LOGW(TAG, "Skipping invalid gate index %d", gate);
       continue;
     }
-    or (const auto &entry : gate_thresholds) {
-    // Clamp dB value and convert to raw threshold  uint8_t gate = entry.first;
+    
+    // Clamp dB value and convert to raw threshold
     db_value = std::max(0.0f, std::min(95.0f, db_value));
-    uint32_t threshold = db_to_threshold_(db_value);   
-        if (gate >= 16) {
-    // Gate-specific parameter IDdex %d", gate);
+    uint32_t threshold = db_to_threshold_(db_value);
+    
+    // Gate-specific parameter ID
     uint16_t param_id = PARAM_STATIC_THRESHOLD + gate;
     params.push_back(std::make_pair(param_id, threshold));
-      
-    ESP_LOGI(TAG, "Adding static threshold for gate %d: %.1f dB (raw: %u)", ert to raw threshold
+    
+    ESP_LOGI(TAG, "Adding static threshold for gate %d: %.1f dB (raw: %u)", 
              gate, db_value, threshold);
-  }shold = db_to_threshold_(db_value);
-   
-  return set_parameters_batch(params);  // Gate-specific parameter ID
+  }
+  
+  return set_parameters_batch(params);
 }
 
-// Add new method for batch parameter setting  
-bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16_t, uint32_t>> &params) {.1f dB (raw: %u)", 
-  ESP_LOGI(TAG, "Setting %d parameters in batch mode", params.size());lue, threshold);
-  }
+// Add new method for batch parameter setting
+bool HLKLD2402Component::set_parameters_batch(const std::vector<std::pair<uint16_t, uint32_t>> &params) {
+  ESP_LOGI(TAG, "Setting %d parameters in batch mode", params.size());
+  
   if (!enter_config_mode_()) {
-    ESP_LOGE(TAG, "Failed to enter config mode for batch parameter setting"););
+    ESP_LOGE(TAG, "Failed to enter config mode for batch parameter setting");
     return false;
   }
-  ameter setting
-  // Send all parameter commands in rapid succession without waiting for responsesent::set_parameters_batch(const std::vector<std::pair<uint16_t, uint32_t>> &params) {
-  ESP_LOGI(TAG, "Sending %d parameter commands in rapid succession", params.size());rameters in batch mode", params.size());
   
-  std::vector<std::pair<uint16_t, uint32_t>> sent_params;) {
-  int success_count = 0; config mode for batch parameter setting");
+  // Send all parameter commands in rapid succession without waiting for responses
+  ESP_LOGI(TAG, "Sending %d parameter commands in rapid succession", params.size());
+  
+  std::vector<std::pair<uint16_t, uint32_t>> sent_params;
+  int success_count = 0;
   
   for (const auto &param : params) {
     uint16_t param_id = param.first;
-    uint32_t value = param.second; for responses
-    P_LOGI(TAG, "Sending %d parameter commands in rapid succession", params.size());
+    uint32_t value = param.second;
+    
     // Prepare the command data
-    uint8_t data[6];t, uint32_t>> sent_params;
-    data[0] = param_id & 0xFF;t success_count = 0;
+    uint8_t data[6];
+    data[0] = param_id & 0xFF;
     data[1] = (param_id >> 8) & 0xFF;
     data[2] = value & 0xFF;
-    data[3] = (value >> 8) & 0xFF;uint16_t param_id = param.first;
+    data[3] = (value >> 8) & 0xFF;
     data[4] = (value >> 16) & 0xFF;
     data[5] = (value >> 24) & 0xFF;
     
     ESP_LOGI(TAG, "Sending parameter 0x%04X = %u", param_id, value);
-    data[0] = param_id & 0xFF;
+    
     // Send command without waiting for response
     std::vector<uint8_t> frame;
     
-    // Headerdata[4] = (value >> 16) & 0xFF;
-    frame.insert(frame.end(), FRAME_HEADER, FRAME_HEADER + 4);>> 24) & 0xFF;
+    // Header
+    frame.insert(frame.end(), FRAME_HEADER, FRAME_HEADER + 4);
     
-    // Length (2 bytes) - command (2 bytes) + data lengthESP_LOGI(TAG, "Sending parameter 0x%04X = %u", param_id, value);
+    // Length (2 bytes) - command (2 bytes) + data length
     uint16_t total_len = 2 + sizeof(data);  // 2 for command, plus data length
     frame.push_back(total_len & 0xFF);
-    frame.push_back((total_len >> 8) & 0xFF);std::vector<uint8_t> frame;
+    frame.push_back((total_len >> 8) & 0xFF);
     
     // Command (2 bytes, little endian)
-    frame.push_back(CMD_SET_PARAMS & 0xFF);_HEADER, FRAME_HEADER + 4);
+    frame.push_back(CMD_SET_PARAMS & 0xFF);
     frame.push_back((CMD_SET_PARAMS >> 8) & 0xFF);
-    // Length (2 bytes) - command (2 bytes) + data length
-    // Parameter dataa);  // 2 for command, plus data length
-    frame.insert(frame.end(), data, data + sizeof(data));xFF);
-    (total_len >> 8) & 0xFF);
+    
+    // Parameter data
+    frame.insert(frame.end(), data, data + sizeof(data));
+    
     // Footer
     frame.insert(frame.end(), FRAME_FOOTER, FRAME_FOOTER + 4);
-    h_back(CMD_SET_PARAMS & 0xFF);
-    // Write directly without waiting for response frame.push_back((CMD_SET_PARAMS >> 8) & 0xFF);
-    size_t written = 0;  
+    
+    // Write directly without waiting for response
+    size_t written = 0;
     size_t to_write = frame.size();
-    write_array(frame.data(), to_write);sert(frame.end(), data, data + sizeof(data));
+    write_array(frame.data(), to_write);
       
     // Track sent parameter for logging
     sent_params.push_back(param);
-    success_count++;  
+    success_count++;
     
     // Mini delay between commands - just enough to avoid buffer overflows
-    delay(5););
-  }  write_array(frame.data(), to_write);
+    delay(5);
+  }
   
-  // Small pause to allow module to process all commandsgging
+  // Small pause to allow module to process all commands
   delay(50);
   
   // Now read all the responses without requiring them to match up exactly
-  ESP_LOGI(TAG, "Reading responses for %d commands", success_count);delay between commands - just enough to avoid buffer overflows
+  ESP_LOGI(TAG, "Reading responses for %d commands", success_count);
   
   // We only need to confirm we received the expected number of responses
   int response_count = 0;
-  uint32_t start_time = millis();// Small pause to allow module to process all commands
+  uint32_t start_time = millis();
   
   while (response_count < success_count && (millis() - start_time) < 2000) {
-    std::vector<uint8_t> response;em to match up exactly
-    if (read_response_(response, 100)) {mmands", success_count);
+    std::vector<uint8_t> response;
+    if (read_response_(response, 100)) {
       response_count++;
-      ESP_LOGD(TAG, "Got response %d of %d", response_count, success_count);ses
-    } else {onse_count = 0;
+      ESP_LOGD(TAG, "Got response %d of %d", response_count, success_count);
+    } else {
       break; // No more responses available
     }
-  }while (response_count < success_count && (millis() - start_time) < 2000) {
-  _t> response;
-  ESP_LOGI(TAG, "Received %d responses out of %d expected", response_count, success_count);(response, 100)) {
-      response_count++;
-  // Save configuration after setting all parametersccess_count);
+  }
+  
+  ESP_LOGI(TAG, "Received %d responses out of %d expected", response_count, success_count);
+  
+  // Save configuration after setting all parameters
   bool save_success = save_configuration_();
-  if (save_success) {     break; // No more responses available
-    ESP_LOGI(TAG, "Successfully saved batch parameter configuration");    }
+  if (save_success) {
+    ESP_LOGI(TAG, "Successfully saved batch parameter configuration");
   } else {
     ESP_LOGW(TAG, "Failed to save batch parameter configuration");
-  }t, success_count);
+  }
   
   // Exit config mode
-  exit_config_mode_();onfiguration_();
+  exit_config_mode_();
   
-  // Return success if we got most of the responses we expected saved batch parameter configuration");
+  // Return success if we got most of the responses we expected
   return (response_count >= success_count * 0.8);
-}  ESP_LOGW(TAG, "Failed to save batch parameter configuration");
+}
 
 // Add a new method for batch parameter reading
 bool HLKLD2402Component::get_parameters_batch_(const std::vector<uint16_t> &param_ids, std::vector<uint32_t> &values) {
-  ESP_LOGI(TAG, "Reading %d parameters in batch mode", param_ids.size());xit_config_mode_();
+  ESP_LOGI(TAG, "Reading %d parameters in batch mode", param_ids.size());
   
   // Prepare data: length of IDs array (2 bytes) followed by param IDs
   std::vector<uint8_t> data;
   uint16_t count = param_ids.size();
   data.push_back(count & 0xFF);
-  data.push_back((count >> 8) & 0xFF); Add a new method for batch parameter reading
-  t::get_parameters_batch_(const std::vector<uint16_t> &param_ids, std::vector<uint32_t> &values) {
-  for (uint16_t id : param_ids) {G, "Reading %d parameters in batch mode", param_ids.size());
+  data.push_back((count >> 8) & 0xFF);
+  
+  for (uint16_t id : param_ids) {
     data.push_back(id & 0xFF);
-    data.push_back((id >> 8) & 0xFF); array (2 bytes) followed by param IDs
+    data.push_back((id >> 8) & 0xFF);
   }
   
-  if (!send_command_(CMD_GET_PARAMS, data.data(), data.size())) {count & 0xFF);
-    ESP_LOGE(TAG, "Failed to send batch parameter query");ata.push_back((count >> 8) & 0xFF);
+  if (!send_command_(CMD_GET_PARAMS, data.data(), data.size())) {
+    ESP_LOGE(TAG, "Failed to send batch parameter query");
     return false;
-  }param_ids) {
-  FF);
+  }
+  
   // Wait for response
   delay(200);
   
-  std::vector<uint8_t> response;ze())) {
-  if (!read_response_(response, 2000)) {  ESP_LOGE(TAG, "Failed to send batch parameter query");
+  std::vector<uint8_t> response;
+  if (!read_response_(response, 2000)) {
     ESP_LOGE(TAG, "No response to batch parameter query");
     return false;
   }
-  nse
-  // Log the responselay(200);
+  
+  // Log the response
   char hex_buf[128] = {0};
-  for (size_t i = 0; i < response.size() && i < 30; i++) {nse;
+  for (size_t i = 0; i < response.size() && i < 30; i++) {
     sprintf(hex_buf + (i*3), "%02X ", response[i]);
-  }query");
+  }
   ESP_LOGI(TAG, "Batch parameter response: %s", hex_buf);
   
   // Based on the serial capture, each 4-byte value is returned sequentially
   // The format should match what we saw in the capture
   if (response.size() >= param_ids.size() * 4) {
-    values.clear(); (size_t i = 0; i < response.size() && i < 30; i++) {
-    buf + (i*3), "%02X ", response[i]);
+    values.clear();
+    
     for (size_t i = 0; i < param_ids.size(); i++) {
-      size_t offset = i * 4;ESP_LOGI(TAG, "Batch parameter response: %s", hex_buf);
+      size_t offset = i * 4;
       uint32_t value = response[offset] | 
-                      (response[offset+1] << 8) | he serial capture, each 4-byte value is returned sequentially
-                      (response[offset+2] << 16) |  // The format should match what we saw in the capture
-                      (response[offset+3] << 24);  if (response.size() >= param_ids.size() * 4) {
+                      (response[offset+1] << 8) | 
+                      (response[offset+2] << 16) | 
+                      (response[offset+3] << 24);
       
       values.push_back(value);
-      ESP_LOGI(TAG, "Parameter 0x%04X value: %u (0x%08X)", param_ids[i], value, value); {
-    }    size_t offset = i * 4;
+      ESP_LOGI(TAG, "Parameter 0x%04X value: %u (0x%08X)", param_ids[i], value, value);
+    }
     return true;
-  }) | 
-                      (response[offset+2] << 16) | 
-  ESP_LOGE(TAG, "Invalid batch parameter response format or insufficient data");e[offset+3] << 24);
+  }
+  
+  ESP_LOGE(TAG, "Invalid batch parameter response format or insufficient data");
   return false;
-}_back(value);
-   ESP_LOGI(TAG, "Parameter 0x%04X value: %u (0x%08X)", param_ids[i], value, value);
-// Method to read all motion thresholds in one call  }
+}
+
+// Method to read all motion thresholds in one call
 bool HLKLD2402Component::get_all_motion_thresholds() {
   ESP_LOGI(TAG, "Reading all motion thresholds");
   
-  // Remember the current operating mode before entering config modemat or insufficient data");
-  std::string previous_mode = operating_mode_;eturn false;
+  // Remember the current operating mode before entering config mode
+  std::string previous_mode = operating_mode_;
   
   if (!enter_config_mode_()) {
     ESP_LOGE(TAG, "Failed to enter config mode for reading thresholds");
-    return false;ol HLKLD2402Component::get_all_motion_thresholds() {
-  }"Reading all motion thresholds");
+    return false;
+  }
   
-  // Prepare parameter IDs for motion threshold gates (0x0010 to 0x001F) Remember the current operating mode before entering config mode
-  std::vector<uint16_t> param_ids;mode_;
+  // Prepare parameter IDs for motion threshold gates (0x0010 to 0x001F)
+  std::vector<uint16_t> param_ids;
   for (uint16_t i = 0; i < 16; i++) {
     param_ids.push_back(PARAM_TRIGGER_THRESHOLD + i);
-  }SP_LOGE(TAG, "Failed to enter config mode for reading thresholds");
-  return false;
+  }
+  
   std::vector<uint32_t> values;
   bool success = get_parameters_batch_(param_ids, values);
-  es (0x0010 to 0x001F)
+  
   if (success) {
-    ESP_LOGI(TAG, "Motion thresholds for all gates:");(uint16_t i = 0; i < 16; i++) {
+    ESP_LOGI(TAG, "Motion thresholds for all gates:");
     
     // Resize the cache vector if needed
     if (motion_threshold_values_.size() < values.size()) {
       motion_threshold_values_.resize(values.size(), 0);
     }
     
-    // Process and publish each valueuccess) {
-    for (size_t i = 0; i < values.size() && i < 16; i++) {SP_LOGI(TAG, "Motion thresholds for all gates:");
+    // Process and publish each value
+    for (size_t i = 0; i < values.size() && i < 16; i++) {
       float db_value = threshold_to_db_(values[i]); 
-      motion_threshold_values_[i] = db_value;  // Resize the cache vector if needed
-      old_values_.size() < values.size()) {
-      ESP_LOGI(TAG, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);_values_.resize(values.size(), 0);
-        }
+      motion_threshold_values_[i] = db_value;
+      
+      ESP_LOGI(TAG, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);
+      
       // Publish to sensor if available
       if (i < motion_threshold_sensors_.size() && motion_threshold_sensors_[i] != nullptr) {
         motion_threshold_sensors_[i]->publish_state(db_value);
-        ESP_LOGI(TAG, "Published motion threshold for gate %d: %.1f dB", i, db_value);o_db_(values[i]);
-      }   motion_threshold_values_[i] = db_value;
-    }    
-  }G, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);
-       
-  // Exit config mode      // Publish to sensor if available
-  exit_config_mode_();threshold_sensors_[i] != nullptr) {
-  _value);
-  // Restore previous operating mode if it was Engineering mode for gate %d: %.1f dB", i, db_value);
-  if (previous_mode == "Engineering" && operating_mode_ != "Engineering") {    }
+        ESP_LOGI(TAG, "Published motion threshold for gate %d: %.1f dB", i, db_value);
+      }
+    }
+  }
+  
+  // Exit config mode
+  exit_config_mode_();
+  
+  // Restore previous operating mode if it was Engineering mode
+  if (previous_mode == "Engineering" && operating_mode_ != "Engineering") {
     ESP_LOGI(TAG, "Restoring engineering mode after threshold reading");
     set_engineering_mode_direct();
   }
   
   return success;
 }
-/ Restore previous operating mode if it was Engineering mode
-// Fix: Similar change for get_all_micromotion_thresholdsif (previous_mode == "Engineering" && operating_mode_ != "Engineering") {
-bool HLKLD2402Component::get_all_static_thresholds() {eshold reading");
+
+// Fix: Similar change for get_all_micromotion_thresholds
+bool HLKLD2402Component::get_all_static_thresholds() {
   ESP_LOGI(TAG, "Reading all static thresholds");
   
   // Remember the current operating mode before entering config mode
-  std::string previous_mode = operating_mode_;eturn success;
+  std::string previous_mode = operating_mode_;
   
   if (!enter_config_mode_()) {
     ESP_LOGE(TAG, "Failed to enter config mode for reading thresholds");
-    return false;ol HLKLD2402Component::get_all_static_thresholds() {
-  }"Reading all static thresholds");
+    return false;
+  }
   
-  // Prepare parameter IDs using PARAM_STATIC_THRESHOLD Remember the current operating mode before entering config mode
-  std::vector<uint16_t> param_ids;mode_;
+  // Prepare parameter IDs using PARAM_STATIC_THRESHOLD
+  std::vector<uint16_t> param_ids;
   for (uint16_t i = 0; i < 16; i++) {
     param_ids.push_back(PARAM_STATIC_THRESHOLD + i);
-  }SP_LOGE(TAG, "Failed to enter config mode for reading thresholds");
-  return false;
+  }
+  
   std::vector<uint32_t> values;
   bool success = get_parameters_batch_(param_ids, values);
-  HOLD
+  
   if (success) {
-    ESP_LOGI(TAG, "Static thresholds for all gates:");(uint16_t i = 0; i < 16; i++) {
+    ESP_LOGI(TAG, "Static thresholds for all gates:");
     
     // Resize the cache vector if needed
     if (static_threshold_values_.size() < values.size()) {
       static_threshold_values_.resize(values.size(), 0);
     }
     
-    // Process and publish each valueuccess) {
-    for (size_t i = 0; i < values.size() && i < 16; i++) {SP_LOGI(TAG, "Static thresholds for all gates:");
+    // Process and publish each value
+    for (size_t i = 0; i < values.size() && i < 16; i++) {
       float db_value = threshold_to_db_(values[i]); 
-      static_threshold_values_[i] = db_value;  // Resize the cache vector if needed
-      old_values_.size() < values.size()) {
-      ESP_LOGI(TAG, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);_values_.resize(values.size(), 0);
-        }
+      static_threshold_values_[i] = db_value;
+      
+      ESP_LOGI(TAG, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);
+      
       // Publish to sensor if available
       if (i < static_threshold_sensors_.size() && static_threshold_sensors_[i] != nullptr) {
         static_threshold_sensors_[i]->publish_state(db_value);
-        ESP_LOGI(TAG, "Published static threshold for gate %d: %.1f dB", i, db_value);o_db_(values[i]);
-      }   static_threshold_values_[i] = db_value;
-    }    
-  }G, "  Gate %d: %u (%.1f dB)", i, values[i], db_value);
-       
-  // Exit config mode      // Publish to sensor if available
-  exit_config_mode_();!= nullptr) {
-  publish_state(db_value);
-  // Restore previous operating mode if it was Engineering moded for gate %d: %.1f dB", i, db_value);
-  if (previous_mode == "Engineering" && operating_mode_ != "Engineering") {     }
-    ESP_LOGI(TAG, "Restoring engineering mode after threshold reading");    }
+        ESP_LOGI(TAG, "Published static threshold for gate %d: %.1f dB", i, db_value);
+      }
+    }
+  }
+  
+  // Exit config mode
+  exit_config_mode_();
+  
+  // Restore previous operating mode if it was Engineering mode
+  if (previous_mode == "Engineering" && operating_mode_ != "Engineering") {
+    ESP_LOGI(TAG, "Restoring engineering mode after threshold reading");
     set_engineering_mode_direct();
   }
   
-  return success;exit_config_mode_();
+  return success;
 }
-gineering mode
-// Update calibration to match new command format and improve progress trackingde == "Engineering" && operating_mode_ != "Engineering") {
-void HLKLD2402Component::calibrate() { ESP_LOGI(TAG, "Restoring engineering mode after threshold reading");
-  calibrate_with_coefficients(3.0f, 3.0f, 3.0f);  set_engineering_mode_direct();
+
+// Update calibration to match new command format and improve progress tracking
+void HLKLD2402Component::calibrate() {
+  calibrate_with_coefficients(3.0f, 3.0f, 3.0f);
 }
 
 // Update calibration to match new command format and improve progress tracking
 bool HLKLD2402Component::calibrate_with_coefficients(float trigger_coeff, float hold_coeff, float micromotion_coeff) {
   ESP_LOGI(TAG, "Starting calibration with custom coefficients...");
-  s tracking
+  
   if (!enter_config_mode_()) {
     ESP_LOGE(TAG, "Failed to enter config mode");
     return false;
   }
-  acking
-  // Clamp coefficients to valid range (1.0 - 20.0)ent::calibrate_with_coefficients(float trigger_coeff, float hold_coeff, float micromotion_coeff) {
-  trigger_coeff = std::max(MIN_COEFF, std::min(MAX_COEFF, trigger_coeff));om coefficients...");
+  
+  // Clamp coefficients to valid range (1.0 - 20.0)
+  trigger_coeff = std::max(MIN_COEFF, std::min(MAX_COEFF, trigger_coeff));
   hold_coeff = std::max(MIN_COEFF, std::min(MAX_COEFF, hold_coeff));
   micromotion_coeff = std::max(MIN_COEFF, std::min(MAX_COEFF, micromotion_coeff));
   
   // According to section 5.2.9, each coefficient is multiplied by 10
   uint16_t trigger_value = static_cast<uint16_t>(trigger_coeff * 10.0f);
   uint16_t hold_value = static_cast<uint16_t>(hold_coeff * 10.0f);
-  uint16_t micro_value = static_cast<uint16_t>(micromotion_coeff * 10.0f);// Clamp coefficients to valid range (1.0 - 20.0)
+  uint16_t micro_value = static_cast<uint16_t>(micromotion_coeff * 10.0f);
   
-  // Prepare data according to the protocol: 3 coefficients, each 2 byteshold_coeff));
-  uint8_t data[] = {micromotion_coeff = std::max(MIN_COEFF, std::min(MAX_COEFF, micromotion_coeff));
+  // Prepare data according to the protocol: 3 coefficients, each 2 bytes
+  uint8_t data[] = {
     static_cast<uint8_t>(trigger_value & 0xFF),
-    static_cast<uint8_t>((trigger_value >> 8) & 0xFF), 10
-    static_cast<uint8_t>(hold_value & 0xFF),nt16_t trigger_value = static_cast<uint16_t>(trigger_coeff * 10.0f);
-    static_cast<uint8_t>((hold_value >> 8) & 0xFF),oeff * 10.0f);
-    static_cast<uint8_t>(micro_value & 0xFF),<uint16_t>(micromotion_coeff * 10.0f);
+    static_cast<uint8_t>((trigger_value >> 8) & 0xFF),
+    static_cast<uint8_t>(hold_value & 0xFF),
+    static_cast<uint8_t>((hold_value >> 8) & 0xFF),
+    static_cast<uint8_t>(micro_value & 0xFF),
     static_cast<uint8_t>((micro_value >> 8) & 0xFF)
   };
-  nt8_t data[] = {
-  ESP_LOGI(TAG, "Calibration coefficients - Trigger: %.1f, Hold: %.1f, Micro: %.1f", r_value & 0xFF),
+  
+  ESP_LOGI(TAG, "Calibration coefficients - Trigger: %.1f, Hold: %.1f, Micro: %.1f", 
          trigger_coeff, hold_coeff, micromotion_coeff);
   
-  if (send_command_(CMD_START_CALIBRATION, data, sizeof(data))) {tatic_cast<uint8_t>((hold_value >> 8) & 0xFF),
-    ESP_LOGI(TAG, "Started calibration with custom coefficients");uint8_t>(micro_value & 0xFF),
-    _cast<uint8_t>((micro_value >> 8) & 0xFF)
+  if (send_command_(CMD_START_CALIBRATION, data, sizeof(data))) {
+    ESP_LOGI(TAG, "Started calibration with custom coefficients");
+    
     // Set calibration flags and initialize progress
     calibration_in_progress_ = true;
-    calibration_progress_ = 0;Calibration coefficients - Trigger: %.1f, Hold: %.1f, Micro: %.1f", 
-    last_calibration_check_ = millis() - 4000; // Check status almost immediately      trigger_coeff, hold_coeff, micromotion_coeff);
-     
-    // Publish initial progress  if (send_command_(CMD_START_CALIBRATION, data, sizeof(data))) {
-    if (this->calibration_progress_sensor_ != nullptr) {rted calibration with custom coefficients");
-      this->calibration_progress_sensor_->publish_state(0);    
-    }gs and initialize progress
-    return true;ress_ = true;
-
-
-
-
-
-
-
-
-
-
-
-}  // namespace esphome}  // namespace hlk_ld2402// ...existing code...}  }    return false;    exit_config_mode_();    ESP_LOGE(TAG, "Failed to start calibration");  } else {    calibration_progress_ = 0;
+    calibration_progress_ = 0;
     last_calibration_check_ = millis() - 4000; // Check status almost immediately
     
     // Publish initial progress
