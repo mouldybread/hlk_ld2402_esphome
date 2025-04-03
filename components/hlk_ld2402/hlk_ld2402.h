@@ -268,11 +268,6 @@ private:
   text_sensor::TextSensor *firmware_version_text_sensor_{nullptr};
   text_sensor::TextSensor *operating_mode_text_sensor_{nullptr};
   
-  // Add variables to track detection status and timing
-  uint8_t last_detection_status_{0};        // Last detection status code (0=none, 1=motion, 2=static)
-  uint32_t last_detection_frame_time_{0};   // When the last frame with detection data was received
-  float last_detection_distance_{0.0f};     // The distance from the last detection
-  
   float max_distance_{5.0};
   uint32_t timeout_{5};
   bool config_mode_{false};
