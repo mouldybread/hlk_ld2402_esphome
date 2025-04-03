@@ -44,11 +44,11 @@ void HLKLD2402Component::setup() {
     uint8_t mode_data[6] = {0x00, 0x00, 0x04, 0x00, 0x00, 0x00}; // Engineering mode (0x00000004)
     
     if (send_command_(CMD_SET_MODE, mode_data, sizeof(mode_data))) {
-      ESP_LOGI(TAG, "Successfully configured binary frame mode");
+      ESP_LOGI(TAG, "Successfully configured engineering mode for both detection and energy data");
       operating_mode_ = "Engineering";
       engineering_data_enabled_ = true;
     } else {
-      ESP_LOGW(TAG, "Failed to configure binary frame mode - detection reliability may be reduced");
+      ESP_LOGW(TAG, "Failed to configure engineering mode - detection reliability may be reduced");
     }
     
     // Exit config mode
@@ -326,11 +326,19 @@ void HLKLD2402Component::loop() {
           
           // Process the data frame based on frame_type with additional checks
           if (frame_type == DATA_FRAME_TYPE_DISTANCE) {
-            // MODIFICATION: If in engineering mode, process 0x83 frames as engineering data
+            // MODIFICATION: When in engineering mode, process BOTH engineering data AND regular detection data
             if (operating_mode_ == "Engineering") {
-              ESP_LOGI(TAG, "Processing distance frame (0x83) as engineering data in engineering mode");
+              ESP_LOGI(TAG, "Processing distance frame (0x83) in engineering mode");
+              
+              // First process as regular detection frame
+              if (process_distance_frame_(frame_data)) {
+                ESP_LOGD(TAG, "Successfully processed 0x83 frame for presence/distance");
+              } else {
+                ESP_LOGW(TAG, "Failed to process 0x83 frame for presence/distance");
+              }
+              
+              // Then also process as engineering data
               if (process_engineering_from_distance_frame_(frame_data)) {
-                // Successfully processed as engineering data
                 ESP_LOGD(TAG, "Successfully processed 0x83 frame as engineering data");
               } else {
                 ESP_LOGW(TAG, "Failed to process 0x83 frame as engineering data");
