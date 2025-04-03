@@ -997,8 +997,9 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
   last_detection_frame_time_ = millis();
   last_detection_distance_ = distance_cm;
   
-  // Log the received status byte
-  ESP_LOGD(TAG, "Processing detection status byte: 0x%02X at %.1f cm", detection_status, distance_cm);
+  // Add enhanced logging to clearly show what's happening
+  ESP_LOGI(TAG, "PRESENCE DETECTION: Raw status code: 0x%02X (%d decimal) at %.1f cm", 
+           detection_status, detection_status, distance_cm);
   
   // Update presence sensor based strictly on detection_status
   if (this->presence_binary_sensor_ != nullptr) {
@@ -1007,8 +1008,8 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     
     // Only update and log if the state has changed
     if (is_presence != last_presence_state_) {
-      ESP_LOGI(TAG, "Changing PRESENCE sensor to %s because 0x%02X status byte was received", 
-               is_presence ? "ON" : "OFF", detection_status);
+      ESP_LOGI(TAG, "Updating presence sensor to %s (status code 0x%02X) at distance %.1f cm", 
+               is_presence ? "ON" : "OFF", detection_status, distance_cm);
       
       this->presence_binary_sensor_->publish_state(is_presence);
       last_presence_state_ = is_presence;
@@ -1022,12 +1023,23 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     
     // Only update and log if the state has changed
     if (is_motion != last_motion_state_) {
-      ESP_LOGI(TAG, "Changing MOTION sensor to %s because 0x%02X status byte was received", 
-               is_motion ? "ON" : "OFF", detection_status);
+      ESP_LOGI(TAG, "Updating motion sensor to %s (status code 0x%02X) at distance %.1f cm", 
+               is_motion ? "ON" : "OFF", detection_status, distance_cm);
       
       this->motion_binary_sensor_->publish_state(is_motion);
       last_motion_state_ = is_motion;
     }
+  }
+  
+  // Add summary log for clarity
+  if (detection_status == 0x00) {
+    ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
+  } else if (detection_status == 0x01) {
+    ESP_LOGI(TAG, "Motion detected at %.1f cm", distance_cm);
+  } else if (detection_status == 0x02) {
+    ESP_LOGI(TAG, "Static presence detected at %.1f cm", distance_cm);
+  } else {
+    ESP_LOGW(TAG, "Unknown detection status 0x%02X at %.1f cm", detection_status, distance_cm);
   }
 }
 
