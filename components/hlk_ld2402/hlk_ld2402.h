@@ -302,6 +302,11 @@ private:
   // Add variables to track the last state of sensors for change detection
   bool last_presence_state_{false};
   bool last_motion_state_{false};
+  
+  // Add these missing detection tracking variables
+  uint8_t last_detection_status_{0};
+  uint32_t last_detection_frame_time_{0};
+  float last_detection_distance_{0};
 };
 
 }  // namespace hlk_ld2402
