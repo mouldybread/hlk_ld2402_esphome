@@ -217,6 +217,10 @@ public:
   
   // For automation support
   void set_auto_commit_delay(uint32_t delay_ms) { auto_commit_delay_ms_ = delay_ms; }
+  
+  // Add new setter for binary sensor throttling
+  void set_presence_throttle(uint32_t throttle_ms) { presence_throttle_ms_ = throttle_ms; }
+  void set_motion_throttle(uint32_t throttle_ms) { motion_throttle_ms_ = throttle_ms; }
 
 protected:
   bool enter_config_mode_();
@@ -298,6 +302,12 @@ private:
   bool batch_update_in_progress_ = false;
   uint32_t last_parameter_update_ = 0;
   uint32_t auto_commit_delay_ms_ = 1000; // Default to 1 second
+  
+  // Add new variables for binary sensor throttling
+  uint32_t presence_throttle_ms_{1000}; // Default throttle of 1 second for presence
+  uint32_t last_presence_update_{0};    // Time of last presence sensor update
+  uint32_t motion_throttle_ms_{1000};   // Default throttle of 1 second for motion
+  uint32_t last_motion_update_{0};      // Time of last motion sensor update
 };
 
 }  // namespace hlk_ld2402

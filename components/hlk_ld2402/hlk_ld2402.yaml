@@ -1,0 +1,56 @@
+# Update existing configuration schema to add throttling options for binary sensors
+
+uart:
+  - id: uart_id
+    type: string
+presence:
+  type: boolean
+  default: false
+  required: false
+motion:
+  type: boolean
+  default: false
+  required: false
+max_distance:
+  type: float
+  default: 5.0
+  required: false
+timeout:
+  type: int
+  default: 5
+  required: false
+throttle:
+  type: time
+  default: 2000ms
+  required: false
+presence_throttle:
+  type: time  # Add new throttling parameter for presence sensor
+  default: 1000ms
+  required: false
+motion_throttle:
+  type: time  # Add new throttling parameter for motion sensor
+  default: 1000ms
+  required: false
+firmware_version:
+  type: boolean
+  default: false
+  required: false
+operating_mode:
+  type: boolean
+  default: false
+  required: false
+calibration_progress:
+  type: boolean
+  default: false
+  required: false
+power_interference:
+  type: boolean
+  default: false
+  required: false
+energy_gate:
+  type: [schema]
+  schema:
+    gate_index:
+      type: int
+      required: true
+  required: false

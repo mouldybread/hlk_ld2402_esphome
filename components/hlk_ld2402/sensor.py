@@ -59,3 +59,10 @@ async def to_code(config):
         cg.add(parent.set_distance_sensor(var))
         if CONF_THROTTLE in config:
             cg.add(parent.set_distance_throttle(config[CONF_THROTTLE]))
+    
+    # Add new throttling options
+    if CONF_PRESENCE_THROTTLE in config:
+        cg.add(var.set_presence_throttle(config[CONF_PRESENCE_THROTTLE]))
+        
+    if CONF_MOTION_THROTTLE in config:
+        cg.add(var.set_motion_throttle(config[CONF_MOTION_THROTTLE]))
