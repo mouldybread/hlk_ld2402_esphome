@@ -173,25 +173,6 @@ void HLKLD2402Component::loop() {
   static uint32_t eng_mode_start_time = 0;
   static uint32_t last_eng_retry_time = 0;
   static uint8_t eng_retry_count = 0;
-  static uint32_t last_detection_status_log_time = 0; // New variable for status logging
-  
-  // Add periodic detection status logging - every 5 seconds
-  uint32_t now = millis();
-  if (now - last_detection_status_log_time > 5000) {  // Every 5 seconds
-    last_detection_status_log_time = now;
-    
-    // Calculate how long since last detection frame
-    uint32_t time_since_detection = now - last_detection_frame_time_;
-    
-    // Log the status with time since update
-    const char* status_text = 
-      (last_detection_status_ == 0) ? "No presence" : 
-      (last_detection_status_ == 1) ? "Person moving" : 
-      (last_detection_status_ == 2) ? "Stationary person" : "Unknown state";
-    
-    ESP_LOGI(TAG, "Detection status: 0x%02X (%s) at %.1f cm, %u ms ago", 
-             last_detection_status_, status_text, last_detection_distance_, time_since_detection);
-  }
   
   // Add periodic debug message - reduce frequency
   if (millis() - last_debug_time > 30000) {  // Every 30 seconds
@@ -1022,11 +1003,6 @@ bool HLKLD2402Component::process_engineering_data_(const std::vector<uint8_t> &f
 
 // Create a separate method for updating binary sensors to avoid code duplication
 void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detection_status) {
-  // Store the latest detection status and timestamp
-  last_detection_status_ = detection_status;
-  last_detection_frame_time_ = millis();
-  last_detection_distance_ = distance_cm;
-  
   // Update presence based on detection status
   if (this->presence_binary_sensor_ != nullptr) {
     // The byte at position 6 in the frame indicates presence:
