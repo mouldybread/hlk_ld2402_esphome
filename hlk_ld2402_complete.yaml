@@ -80,7 +80,7 @@ sensor:
   # All 15 energy gate sensors (0-14)
   - platform: hlk_ld2402
     id: radar_energy_gate_00
-    name: "Radar Energy Gate 00 (0.0-0.7m)"
+    name: "Energy Gate 00 (0.0-0.7m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -91,7 +91,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_01
-    name: "Radar Energy Gate 01 (0.7-1.4m)"
+    name: "Energy Gate 01 (0.7-1.4m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -102,7 +102,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_02
-    name: "Radar Energy Gate 02 (1.4-2.1m)"
+    name: "Energy Gate 02 (1.4-2.1m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -113,7 +113,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_03
-    name: "Radar Energy Gate 03 (2.1-2.8m)"
+    name: "Energy Gate 03 (2.1-2.8m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -124,7 +124,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_04
-    name: "Radar Energy Gate 04 (2.8-3.5m)"
+    name: "Energy Gate 04 (2.8-3.5m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -135,7 +135,7 @@ sensor:
 
   - platform: hlk_ld2402
     id: radar_energy_gate_05
-    name: "Radar Energy Gate 05 (3.5-4.2m)"
+    name: "Energy Gate 05 (3.5-4.2m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -146,7 +146,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_06
-    name: "Radar Energy Gate 06 (4.2-4.9m)"
+    name: "Energy Gate 06 (4.2-4.9m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -157,7 +157,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_07
-    name: "Radar Energy Gate 07 (4.9-5.6m)"
+    name: "Energy Gate 07 (4.9-5.6m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -168,7 +168,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_08
-    name: "Radar Energy Gate 08 (5.6-6.3m)"
+    name: "Energy Gate 08 (5.6-6.3m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -179,7 +179,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_09
-    name: "Radar Energy Gate 09 (6.3-7.0m)"
+    name: "Energy Gate 09 (6.3-7.0m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -190,7 +190,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_10
-    name: "Radar Energy Gate 10 (7.0-7.7m)"
+    name: "Energy Gate 10 (7.0-7.7m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -201,7 +201,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_11
-    name: "Radar Energy Gate 11 (7.7-8.4m)"
+    name: "Energy Gate 11 (7.7-8.4m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -212,7 +212,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_12
-    name: "Radar Energy Gate 12 (8.4-9.1m)"
+    name: "Energy Gate 12 (8.4-9.1m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -223,7 +223,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_13
-    name: "Radar Energy Gate 13 (9.1-9.8m)"
+    name: "Energy Gate 13 (9.1-9.8m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -234,7 +234,7 @@ sensor:
       
   - platform: hlk_ld2402
     id: radar_energy_gate_14
-    name: "Radar Energy Gate 14 (9.8-10.5m)"
+    name: "Energy Gate 14 (9.8-10.5m)"
     hlk_ld2402_id: radar_sensor
     state_class: measurement
     unit_of_measurement: "dB"
@@ -262,6 +262,16 @@ text_sensor:
 
 # Control buttons - using template buttons 
 button:
+  - platform: template
+    name: "${friendly_name} Commit Parameter Changes"
+    on_press:
+      - lambda: id(radar).commit_batch_update();
+      
+  - platform: template
+    name: "${friendly_name} Cancel Parameter Changes"
+    on_press:
+      - lambda: id(radar).cancel_batch_update();
+
   - platform: template
     name: "Check Radar Firmware Version"
     icon: "mdi:information-outline"
@@ -414,7 +424,7 @@ number:
 
   # Motion threshold sliders for gates
   - platform: template
-    name: "Gate 00 Motion Threshold"
+    name: "Motion Gate 00 Threshold"
     id: gate_00_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -428,7 +438,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(0, id(gate_00_motion_threshold).state);
   
   - platform: template
-    name: "Gate 01 Motion Threshold"
+    name: "Motion Gate 01 Threshold"
     id: gate_01_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -442,7 +452,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(1, id(gate_01_motion_threshold).state);
   
   - platform: template
-    name: "Gate 02 Motion Threshold"
+    name: "Motion Gate 02 Threshold"
     id: gate_02_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -456,7 +466,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(2, id(gate_02_motion_threshold).state);
           
   - platform: template
-    name: "Gate 03 Motion Threshold"
+    name: "Motion Gate 03 Threshold"
     id: gate_03_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -470,7 +480,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(3, id(gate_03_motion_threshold).state);
           
   - platform: template
-    name: "Gate 04 Motion Threshold"
+    name: "Motion Gate 04 Threshold"
     id: gate_04_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -484,7 +494,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(4, id(gate_04_motion_threshold).state);
           
   - platform: template
-    name: "Gate 05 Motion Threshold"
+    name: "Motion Gate 05 Threshold"
     id: gate_05_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -498,7 +508,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(5, id(gate_05_motion_threshold).state);
           
   - platform: template
-    name: "Gate 06 Motion Threshold"
+    name: "Motion Gate 06 Threshold"
     id: gate_06_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -512,7 +522,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(6, id(gate_06_motion_threshold).state);
           
   - platform: template
-    name: "Gate 07 Motion Threshold"
+    name: "Motion Gate 07 Threshold"
     id: gate_07_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -526,7 +536,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(7, id(gate_07_motion_threshold).state);
           
   - platform: template
-    name: "Gate 08 Motion Threshold"
+    name: "Motion Gate 08 Threshold"
     id: gate_08_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -540,7 +550,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(8, id(gate_08_motion_threshold).state);
           
   - platform: template
-    name: "Gate 09 Motion Threshold"
+    name: "Motion Gate 09 Threshold"
     id: gate_09_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -554,7 +564,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(9, id(gate_09_motion_threshold).state);
           
   - platform: template
-    name: "Gate 10 Motion Threshold"
+    name: "Motion Gate 10 Threshold"
     id: gate_10_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -568,7 +578,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(10, id(gate_10_motion_threshold).state);
           
   - platform: template
-    name: "Gate 11 Motion Threshold"
+    name: "Motion Gate 11 Threshold"
     id: gate_11_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -582,7 +592,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(11, id(gate_11_motion_threshold).state);
           
   - platform: template
-    name: "Gate 12 Motion Threshold"
+    name: "Motion Gate 12 Threshold"
     id: gate_12_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -596,7 +606,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(12, id(gate_12_motion_threshold).state);
           
   - platform: template
-    name: "Gate 13 Motion Threshold"
+    name: "Motion Gate 13 Threshold"
     id: gate_13_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -610,7 +620,7 @@ number:
           id(radar_sensor).set_gate_motion_threshold(13, id(gate_13_motion_threshold).state);
           
   - platform: template
-    name: "Gate 14 Motion Threshold"
+    name: "Motion Gate 14 Threshold"
     id: gate_14_motion_threshold
     optimistic: true
     min_value: 0.0
@@ -625,7 +635,7 @@ number:
 
   # Static threshold sliders for gates (renamed from Micromotion)
   - platform: template
-    name: "Gate 00 Static Threshold"
+    name: "Static Gate 00 Threshold"
     id: gate_00_static_threshold
     optimistic: true
     min_value: 0.0
@@ -639,7 +649,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(0, id(gate_00_static_threshold).state);
   
   - platform: template
-    name: "Gate 01 Static Threshold"
+    name: "Static Gate 01 Threshold"
     id: gate_01_static_threshold
     optimistic: true
     min_value: 0.0
@@ -653,7 +663,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(1, id(gate_01_static_threshold).state);
   
   - platform: template
-    name: "Gate 02 Static Threshold"
+    name: "Static Gate 02 Threshold"
     id: gate_02_static_threshold
     optimistic: true
     min_value: 0.0
@@ -667,7 +677,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(2, id(gate_02_static_threshold).state);
           
   - platform: template
-    name: "Gate 03 Static Threshold"
+    name: "Static Gate 03 Threshold"
     id: gate_03_static_threshold
     optimistic: true
     min_value: 0.0
@@ -681,7 +691,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(3, id(gate_03_static_threshold).state);
           
   - platform: template
-    name: "Gate 04 Static Threshold"
+    name: "Static Gate 04 Threshold"
     id: gate_04_static_threshold
     optimistic: true
     min_value: 0.0
@@ -695,7 +705,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(4, id(gate_04_static_threshold).state);
           
   - platform: template
-    name: "Gate 05 Static Threshold"
+    name: "Static Gate 05 Threshold"
     id: gate_05_static_threshold
     optimistic: true
     min_value: 0.0
@@ -709,7 +719,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(5, id(gate_05_static_threshold).state);
           
   - platform: template
-    name: "Gate 06 Static Threshold"
+    name: "Static Gate 06 Threshold"
     id: gate_06_static_threshold
     optimistic: true
     min_value: 0.0
@@ -723,7 +733,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(6, id(gate_06_static_threshold).state);
           
   - platform: template
-    name: "Gate 07 Static Threshold"
+    name: "Static Gate 07 Threshold"
     id: gate_07_static_threshold
     optimistic: true
     min_value: 0.0
@@ -737,7 +747,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(7, id(gate_07_static_threshold).state);
           
   - platform: template
-    name: "Gate 08 Static Threshold"
+    name: "Static Gate 08 Threshold"
     id: gate_08_static_threshold
     optimistic: true
     min_value: 0.0
@@ -751,7 +761,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(8, id(gate_08_static_threshold).state);
           
   - platform: template
-    name: "Gate 09 Static Threshold"
+    name: "Static Gate 09 Threshold"
     id: gate_09_static_threshold
     optimistic: true
     min_value: 0.0
@@ -765,7 +775,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(9, id(gate_09_static_threshold).state);
           
   - platform: template
-    name: "Gate 10 Static Threshold"
+    name: "Static Gate 10 Threshold"
     id: gate_10_static_threshold
     optimistic: true
     min_value: 0.0
@@ -779,7 +789,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(10, id(gate_10_static_threshold).state);
           
   - platform: template
-    name: "Gate 11 Static Threshold"
+    name: "Static Gate 11 Threshold"
     id: gate_11_static_threshold
     optimistic: true
     min_value: 0.0
@@ -793,7 +803,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(11, id(gate_11_static_threshold).state);
           
   - platform: template
-    name: "Gate 12 Static Threshold"
+    name: "Static Gate 12 Threshold"
     id: gate_12_static_threshold
     optimistic: true
     min_value: 0.0
@@ -807,7 +817,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(12, id(gate_12_static_threshold).state);
           
   - platform: template
-    name: "Gate 13 Static Threshold"
+    name: "Static Gate 13 Threshold"
     id: gate_13_static_threshold
     optimistic: true
     min_value: 0.0
@@ -821,7 +831,7 @@ number:
           id(radar_sensor).set_gate_static_threshold(13, id(gate_13_static_threshold).state);
           
   - platform: template
-    name: "Gate 14 Static Threshold"
+    name: "Static Gate 14 Threshold"
     id: gate_14_static_threshold
     optimistic: true
     min_value: 0.0

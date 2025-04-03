@@ -727,83 +727,63 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   uint16_t data_length = frame_data[5] | (frame_data[6] << 8);
   ESP_LOGI(TAG, "Frame data length: %u bytes", data_length);
   
-  // Check if we have at least enough data for distance values
-  if (frame_data.size() < 14) {
-    ESP_LOGW(TAG, "Frame too short to contain distance data");
-    return false;
-  }
-  
-  // We'll use the first non-zero value as our distance
-  float min_distance_cm = 0;
-  
-  // Start at byte 13 (index 12) and look for the first valid distance
-  for (size_t i = 12; i + 3 < frame_data.size(); i += 4) {
-    uint32_t value = frame_data[i] | 
-                    (frame_data[i+1] << 8) | 
-                    (frame_data[i+2] << 16) | 
-                    (frame_data[i+3] << 24);
-                    
-    // If the value is non-zero, convert to distance
-    if (value > 0) {
-      float distance = value * 0.1f; // Convert to cm
-      
-      // If this is the first valid value, or it's closer than our current minimum
-      if (min_distance_cm == 0 || distance < min_distance_cm) {
-        min_distance_cm = distance;
+  // The correct presence status is in byte 8 (index 7), documented through testing
+  uint8_t detection_status = (frame_data.size() > 8) ? frame_data[8] : 0;
+
+  // CRITICAL FIX: In engineering mode, we should NOT extract distance from the binary frame
+  // as the values are energy readings, not distance values
+  float distance_cm = 0;
+  bool valid_distance = false;
+
+  if (operating_mode_ == "Engineering") {
+    // In engineering mode, we DON'T extract distance from binary frame
+    // Instead we'll rely on the text-based "distance:XXX" messages
+    // which the process_line_ method will handle
+    ESP_LOGI(TAG, "Engineering mode: Not extracting distance from binary frame");
+  } else {
+    // In normal mode, distance is at position 9-12 (typical for LD2410 protocol)
+    if (frame_data.size() >= 13) {
+      // Try to find a valid distance value between bytes 9-16
+      for (size_t i = 9; i + 3 < std::min(frame_data.size(), size_t(17)); i++) {
+        uint32_t value = frame_data[i] | 
+                        (frame_data[i+1] << 8) | 
+                        (frame_data[i+2] << 16) | 
+                        (frame_data[i+3] << 24);
+                        
+        // If we found a reasonable distance value (0-500cm)
+        if (value > 0 && value < 5000) {
+          float distance = value * 0.1f; // Convert to cm
+          ESP_LOGI(TAG, "Found reasonable distance at pos %d: %.1f cm (raw: %u)", i, distance, value);
+          
+          distance_cm = distance;
+          valid_distance = true;
+          break;
+        }
       }
       
-      ESP_LOGI(TAG, "Distance value at pos %d: %.1f cm (raw: %u)", i, distance, value);
-      
-      // Find just one valid value, then break
-      if (min_distance_cm > 0) {
-        break;
+      // If no reasonable value was found, log this
+      if (!valid_distance) {
+        ESP_LOGW(TAG, "No reasonable distance value found in frame");
       }
     }
   }
   
-  // If we found a valid distance
-  if (min_distance_cm > 0) {
-    // Position 6 contains the presence indicator - 0x00 means no presence,
-    // non-zero values indicate presence detected
-    uint8_t detection_status = (frame_data.size() > 6) ? frame_data[6] : 0;
+  // Update presence binary sensor
+  update_binary_sensors_(distance_cm, detection_status);
+  
+  // Update motion binary sensor using both approaches for reliability
+  if (this->motion_binary_sensor_ != nullptr) {
+    // Use both detection_status and motion_value for more reliable detection
+    uint8_t motion_value = (frame_data.size() > 9) ? frame_data[9] : 0;
+    bool is_motion = (detection_status == 1) || (motion_value > 100);
     
-    // Get byte 7 value for motion detection (if available)
-    uint8_t motion_value = (frame_data.size() > 7) ? frame_data[7] : 0;
-    
-    // Define status_text based on detection_status
-    // NOTE: Despite what the manual says about status values 0=none, 1=moving, 2=stationary,
-    // observations show the device only ever returns 0x00 or 0x01 in practice
-    const char* status_text;
-    if (detection_status == 0) {
-      status_text = "no presence";
-    } else if (detection_status == 1) {
-      status_text = "person moving";
-    } else if (detection_status == 2) {
-      status_text = "stationary person"; // Never seen in practice
-    } else {
-      status_text = "unknown status";
-    }
-    
-    // Log all values for debugging
-    if (frame_data.size() > 9) {
-      ESP_LOGI(TAG, "Frame bytes 5-9: %02X %02X %02X %02X %02X (byte 6 = status: %s, byte 7 = %u)",
-               frame_data[5], frame_data[6], frame_data[7], frame_data[8], frame_data[9],
-               detection_status == 0 ? "no presence" : "presence", motion_value);
-    }
-    
-    // Update presence binary sensor
-    update_binary_sensors_(min_distance_cm, detection_status);
-    
-    // Update motion binary sensor using both approaches for reliability
-    if (this->motion_binary_sensor_ != nullptr) {
-      // Use both detection_status and motion_value for more reliable detection
-      bool is_motion = (detection_status == 1) || (motion_value > 100);
-      
-      this->motion_binary_sensor_->publish_state(is_motion);
-      ESP_LOGI(TAG, "Motion detection: %s (status byte: 0x%02X, motion value: %u)", 
-               is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
-    }
-    
+    this->motion_binary_sensor_->publish_state(is_motion);
+    ESP_LOGI(TAG, "Motion detection: %s (status byte: 0x%02X, motion value: %u)", 
+             is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
+  }
+  
+  // In engineering mode, don't update the distance sensor from binary frame
+  if (valid_distance && operating_mode_ != "Engineering") {
     // For distance sensor, check throttling
     uint32_t now = millis(); // Add this line to get current time
     bool throttled = (this->distance_sensor_ != nullptr && 
@@ -812,24 +792,30 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     // Only update distance sensor if not throttled
     if (!throttled && this->distance_sensor_ != nullptr) {
       static float last_reported_distance = 0;
-      bool significant_change = fabsf(min_distance_cm - last_reported_distance) > 10.0f;
+      bool significant_change = fabsf(distance_cm - last_reported_distance) > 10.0f;
       
       if (significant_change) {
-        ESP_LOGI(TAG, "Detected %s at distance (binary): %.1f cm", status_text, min_distance_cm);
-        last_reported_distance = min_distance_cm;
+        ESP_LOGI(TAG, "Detected %s at distance (binary): %.1f cm", 
+                (detection_status == 0) ? "no presence" :
+                (detection_status == 1) ? "person moving" :
+                (detection_status == 2) ? "stationary person" : "unknown status",
+                distance_cm);
+        last_reported_distance = distance_cm;
       } else {
-        ESP_LOGV(TAG, "Detected %s at distance (binary): %.1f cm", status_text, min_distance_cm);
+        ESP_LOGV(TAG, "Detected %s at distance (binary): %.1f cm", 
+                (detection_status == 0) ? "no presence" :
+                (detection_status == 1) ? "person moving" :
+                (detection_status == 2) ? "stationary person" : "unknown status",
+                distance_cm);
       }
       
-      this->distance_sensor_->publish_state(min_distance_cm);
+      this->distance_sensor_->publish_state(distance_cm);
       last_distance_update_ = now;
       ESP_LOGD(TAG, "Updated distance sensor");
     }
-    
-    return true;
   }
   
-  return false;  // No valid distance found
+  return true;
 }
 
 // Add new method to process engineering data from 0x83 frames
