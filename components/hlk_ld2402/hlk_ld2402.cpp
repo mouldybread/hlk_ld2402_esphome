@@ -32,21 +32,8 @@ void HLKLD2402Component::setup() {
   // Publish initial operating mode
   publish_operating_mode_();
   
-  // Initialize all timestamps to avoid updates right after boot
+  // Initialize timestamps to avoid updates right after boot
   last_distance_update_ = millis();
-  last_presence_update_ = millis();  // Initialize presence timestamp
-  last_motion_update_ = millis();    // Initialize motion timestamp
-  
-  // Set initial state for binary sensors
-  if (this->presence_binary_sensor_ != nullptr) {
-    this->presence_binary_sensor_->publish_state(false);
-    ESP_LOGI(TAG, "Initialized presence sensor to OFF");
-  }
-  
-  if (this->motion_binary_sensor_ != nullptr) {
-    this->motion_binary_sensor_->publish_state(false);
-    ESP_LOGI(TAG, "Initialized motion sensor to OFF");
-  }
   
   // IMPORTANT: Configure device for binary frame mode
   ESP_LOGI(TAG, "Configuring device for binary frame mode (needed for reliable detection)");
@@ -751,13 +738,7 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     uint8_t motion_value = (frame_data.size() > 9) ? frame_data[9] : 0;
     bool is_motion = (detection_status == 1) || (motion_value > 100);
     uint32_t now = millis();
-    
-    // Get current binary sensor state with null safety
-    // When sensor is null or uninitialized, assume state change is needed
-    bool current_state = this->motion_binary_sensor_->has_state() ? 
-                        this->motion_binary_sensor_->state : !is_motion;
-    
-    bool state_changed = (current_state != is_motion);
+    bool state_changed = (this->motion_binary_sensor_->state != is_motion);
     bool throttled = (now - last_motion_update_ < motion_throttle_ms_);
     
     // Only update if state has changed OR if enough time has passed
@@ -1004,13 +985,7 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     // - Non-zero values: Presence detected
     bool is_presence = (detection_status > 0);
     uint32_t now = millis();
-    
-    // Get current binary sensor state with null safety
-    // When sensor is null or uninitialized, assume state change is needed
-    bool current_state = this->presence_binary_sensor_->has_state() ? 
-                         this->presence_binary_sensor_->state : !is_presence;
-                         
-    bool state_changed = (current_state != is_presence);
+    bool state_changed = (this->presence_binary_sensor_->state != is_presence);
     bool throttled = (now - last_presence_update_ < presence_throttle_ms_);
     
     // Update if state changed OR if enough time has passed since last update
@@ -1053,14 +1028,11 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   // Handle OFF status
   if (line == "OFF") {
     ESP_LOGD(TAG, "No target detected");
-    if (this->presence_binary_sensor_ != nullptr) {
+    if (this->presence_binary_sensor_ != nullptr && this->presence_binary_sensor_->state) {
       uint32_t now = millis();
-      bool current_state = this->presence_binary_sensor_->has_state() ? 
-                          this->presence_binary_sensor_->state : true;
-      bool state_changed = current_state; // If current is true and we're turning off, it's a change
       bool throttled = (now - last_presence_update_ < presence_throttle_ms_);
       
-      if (state_changed || !throttled) {
+      if (!throttled) {
         this->presence_binary_sensor_->publish_state(false);
         last_presence_update_ = now;
         ESP_LOGI(TAG, "Presence changed: OFF (from text data)");
