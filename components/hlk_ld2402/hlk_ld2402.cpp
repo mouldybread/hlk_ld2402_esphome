@@ -2177,21 +2177,21 @@ bool HLKLD2402Component::exit_config_mode_() {
   config_mode_ = false;
   ESP_LOGI(TAG, "Left config mode");
   
-  // IMPORTANT CHANGE: Don't default to "Normal" mode when exiting config mode
-  // Instead, use the previous operating mode if it was Engineering mode
-  if (operating_mode_ == "Config") {
-    if (previous_mode == "Engineering") {
-      operating_mode_ = "Engineering";
-      ESP_LOGI(TAG, "Preserving engineering mode after config mode exit");
-    } else {
-      operating_mode_ = "Normal";
-      ESP_LOGI(TAG, "Returning to normal mode after config mode exit");
-    }
-    publish_operating_mode_();
+  // FIXED: Always ensure operating mode is set properly when exiting config
+  // Rather than checking current mode (which may already be Engineering but device is still in config)
+  // Simply check what mode we should be in and set it explicitly
+  if (previous_mode == "Engineering") {
+    operating_mode_ = "Engineering";
+    ESP_LOGI(TAG, "Preserving engineering mode after config mode exit");
+  } else {
+    operating_mode_ = "Normal";
+    ESP_LOGI(TAG, "Setting to normal mode after config mode exit");
   }
+  publish_operating_mode_();
   
   // Clear any pending data to ensure clean state
   flush();
+  while (available()) {
   while (available()) {
     uint8_t c;
     read_byte(&c);
