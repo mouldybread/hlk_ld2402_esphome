@@ -768,19 +768,8 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     }
   }
   
-  // Update presence binary sensor
+  // Update binary sensors with the detection status
   update_binary_sensors_(distance_cm, detection_status);
-  
-  // Update motion binary sensor using both approaches for reliability
-  if (this->motion_binary_sensor_ != nullptr) {
-    // Use both detection_status and motion_value for more reliable detection
-    uint8_t motion_value = (frame_data.size() > 9) ? frame_data[9] : 0;
-    bool is_motion = (detection_status == 1) || (motion_value > 100);
-    
-    this->motion_binary_sensor_->publish_state(is_motion);
-    ESP_LOGI(TAG, "Motion detection: %s (status byte: 0x%02X, motion value: %u)", 
-             is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
-  }
   
   // In engineering mode, don't update the distance sensor from binary frame
   if (valid_distance && operating_mode_ != "Engineering") {
@@ -1001,45 +990,57 @@ bool HLKLD2402Component::process_engineering_data_(const std::vector<uint8_t> &f
   return true;
 }
 
-// Create a separate method for updating binary sensors to avoid code duplication
+// Completely replace the update_binary_sensors_ method
 void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detection_status) {
-  // Update presence based on detection status
+  // Store the latest detection status and timestamp
+  last_detection_status_ = detection_status;
+  last_detection_frame_time_ = millis();
+  last_detection_distance_ = distance_cm;
+  
+  // Log the received status byte
+  ESP_LOGD(TAG, "Processing detection status byte: 0x%02X at %.1f cm", detection_status, distance_cm);
+  
+  // Update presence sensor based strictly on detection_status
   if (this->presence_binary_sensor_ != nullptr) {
-    // The byte at position 6 in the frame indicates presence:
-    // - Value 0x00: No presence detected
-    // - Non-zero values: Presence detected
-    bool is_presence = (detection_status > 0);
+    // Presence is active when status is either 0x01 (motion) or 0x02 (static)
+    bool is_presence = (detection_status == 0x01 || detection_status == 0x02);
     
-    // IMPORTANT DEBUG: Log the raw byte value in hex to confirm what's being received
-    ESP_LOGI(TAG, "PRESENCE DETECTION: Raw status code: 0x%02X (%d decimal) at %.1f cm", 
-             detection_status, detection_status, distance_cm);
-    
-    // Log before updating to ensure we see what's happening
-    ESP_LOGI(TAG, "Updating presence sensor to %s (status code 0x%02X) at distance %.1f cm", 
-             is_presence ? "ON" : "OFF", detection_status, distance_cm);
-    
-    this->presence_binary_sensor_->publish_state(is_presence);
-    
-    if (is_presence) {
-      ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
-    } else {
-      ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
+    // Only update and log if the state has changed
+    if (is_presence != last_presence_state_) {
+      ESP_LOGI(TAG, "Changing PRESENCE sensor to %s because 0x%02X status byte was received", 
+               is_presence ? "ON" : "OFF", detection_status);
+      
+      this->presence_binary_sensor_->publish_state(is_presence);
+      last_presence_state_ = is_presence;
     }
-  } else {
-    ESP_LOGW(TAG, "Presence binary sensor not configured!");
+  }
+  
+  // Update motion sensor based strictly on detection_status
+  if (this->motion_binary_sensor_ != nullptr) {
+    // Motion is active ONLY when status is 0x01 (motion)
+    bool is_motion = (detection_status == 0x01);
+    
+    // Only update and log if the state has changed
+    if (is_motion != last_motion_state_) {
+      ESP_LOGI(TAG, "Changing MOTION sensor to %s because 0x%02X status byte was received", 
+               is_motion ? "ON" : "OFF", detection_status);
+      
+      this->motion_binary_sensor_->publish_state(is_motion);
+      last_motion_state_ = is_motion;
+    }
   }
 }
 
-// Replace the damaged process_line_ method
+// Modify the process_line_ method to also use strict status interpretation
 void HLKLD2402Component::process_line_(const std::string &line) {
   ESP_LOGD(TAG, "Processing line: '%s'", line.c_str());
   
   // Handle OFF status
   if (line == "OFF") {
-    ESP_LOGI(TAG, "No target detected");
-    if (this->presence_binary_sensor_ != nullptr) {
-      this->presence_binary_sensor_->publish_state(false);
-    }
+    ESP_LOGI(TAG, "No target detected in text line");
+    
+    // Use status byte 0x00 to update sensors consistently
+    update_binary_sensors_(0, 0x00);
         
     // Only update the distance sensor if not throttled
     uint32_t now = millis();
@@ -1101,30 +1102,37 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   }
   
   if (valid_distance) {
-    // Check if the line contains presence information
-    uint8_t detection_status = 0;
+    // For text-based messages, determine a status byte based on content
+    uint8_t detection_status = 0x00; // Default to no detection
     
-    // Look for presence indicators in the line
+    // Look for explicit presence indicators in the text message
     if (line.find("presence") != std::string::npos || 
         line.find("detected") != std::string::npos || 
         line.find("person") != std::string::npos) {
-      // Default to moving person if presence is indicated
-      detection_status = 1;
       
-      // Check for stationary indicators
-      if (line.find("stationary") != std::string::npos || 
-          line.find("static") != std::string::npos) {
-        detection_status = 2;
+      // Determine if this is motion or static
+      if (line.find("moving") != std::string::npos || 
+          line.find("motion") != std::string::npos) {
+        detection_status = 0x01; // Moving person
       }
-    } else {
-      // For "distance:XXX" format from engineering mode, we assume presence when distance > 0
-      detection_status = (distance_cm > 0) ? 1 : 0;
-      ESP_LOGI(TAG, "Engineering mode distance detection: Assuming %s based on distance %.1f cm", 
-              (detection_status > 0) ? "presence" : "no presence", distance_cm);
+      else if (line.find("stationary") != std::string::npos || 
+               line.find("static") != std::string::npos) {
+        detection_status = 0x02; // Stationary person
+      }
+      else {
+        // If not specified, default to motion for backward compatibility
+        detection_status = 0x01;
+      }
+      
+      // Update sensors with the determined status byte
+      update_binary_sensors_(distance_cm, detection_status);
     }
-    
-    // Always update binary sensors with detected status
-    update_binary_sensors_(distance_cm, detection_status);
+    else {
+      // Text message doesn't indicate presence - just a distance value
+      // DON'T assume presence just because distance > 0
+      // Instead, log and don't update sensors
+      ESP_LOGD(TAG, "Distance-only message without presence indicators: %.1f cm", distance_cm);
+    }
     
     // For distance sensor, apply throttling
     uint32_t now = millis();

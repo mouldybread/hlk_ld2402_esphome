@@ -298,6 +298,10 @@ private:
   bool batch_update_in_progress_ = false;
   uint32_t last_parameter_update_ = 0;
   uint32_t auto_commit_delay_ms_ = 1000; // Default to 1 second
+  
+  // Add variables to track the last state of sensors for change detection
+  bool last_presence_state_{false};
+  bool last_motion_state_{false};
 };
 
 }  // namespace hlk_ld2402
