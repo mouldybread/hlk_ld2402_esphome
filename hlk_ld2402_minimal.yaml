@@ -51,9 +51,6 @@ hlk_ld2402:
   id: radar_sensor
   max_distance: 5.0
   timeout: 5
-  throttle: 2000ms         # Distance sensor throttling
-  presence_throttle: 1000ms # Presence sensor throttling
-  motion_throttle: 1000ms   # Motion sensor throttling
 
 # Binary sensors - only essential ones
 binary_sensor:

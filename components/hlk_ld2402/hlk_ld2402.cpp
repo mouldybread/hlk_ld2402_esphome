@@ -737,23 +737,12 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
     // Use both detection_status and motion_value for more reliable detection
     uint8_t motion_value = (frame_data.size() > 9) ? frame_data[9] : 0;
     bool is_motion = (detection_status == 1) || (motion_value > 100);
-    uint32_t now = millis();
-    bool state_changed = (this->motion_binary_sensor_->state != is_motion);
-    bool throttled = (now - last_motion_update_ < motion_throttle_ms_);
     
-    // Only update if state has changed OR if enough time has passed
-    if (state_changed || !throttled) {
+    // Only update if state has changed
+    if (this->motion_binary_sensor_->state != is_motion) {
       this->motion_binary_sensor_->publish_state(is_motion);
-      last_motion_update_ = now;
-      
-      // Log only state changes at INFO level
-      if (state_changed) {
-        ESP_LOGI(TAG, "Motion detection changed: %s (status byte: 0x%02X, motion value: %u)", 
-                is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
-      } else {
-        ESP_LOGD(TAG, "Motion detection unchanged (throttled update): %s", 
-                is_motion ? "ACTIVE" : "INACTIVE");
-      }
+      ESP_LOGI(TAG, "Motion detection changed: %s (status byte: 0x%02X, motion value: %u)", 
+               is_motion ? "ACTIVE" : "INACTIVE", detection_status, motion_value);
     }
   }
   
@@ -984,37 +973,26 @@ void HLKLD2402Component::update_binary_sensors_(float distance_cm, uint8_t detec
     // - Value 0x00: No presence detected
     // - Non-zero values: Presence detected
     bool is_presence = (detection_status > 0);
-    uint32_t now = millis();
-    bool state_changed = (this->presence_binary_sensor_->state != is_presence);
-    bool throttled = (now - last_presence_update_ < presence_throttle_ms_);
     
-    // Update if state changed OR if enough time has passed since last update
-    if (state_changed || !throttled) {
-      // Log state change at INFO level, throttled updates at DEBUG level
-      if (state_changed) {
-        // Log state change at INFO level
-        ESP_LOGI(TAG, "Presence changed: %s (status code 0x%02X) at distance %.1f cm", 
-                is_presence ? "ON" : "OFF", detection_status, distance_cm);
-                
-        // Additional detailed log for new state
-        if (is_presence) {
-          ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
-        } else {
-          ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
-        }
-      } else {
-        // Regular update due to throttle timing
-        ESP_LOGD(TAG, "Presence unchanged (throttled update): %s at %.1f cm", 
-                is_presence ? "ON" : "OFF", distance_cm);
-      }
+    // Only log and update when state changes
+    if (this->presence_binary_sensor_->state != is_presence) {
+      // Log state change at INFO level
+      ESP_LOGI(TAG, "Presence changed: %s (status code 0x%02X) at distance %.1f cm", 
+               is_presence ? "ON" : "OFF", detection_status, distance_cm);
       
       // Update the binary sensor state
       this->presence_binary_sensor_->publish_state(is_presence);
-      last_presence_update_ = now;
+      
+      // Additional detailed log for new state
+      if (is_presence) {
+        ESP_LOGI(TAG, "Presence detected: status code 0x%02X at %.1f cm", detection_status, distance_cm);
+      } else {
+        ESP_LOGI(TAG, "No presence detected at %.1f cm", distance_cm);
+      }
     } else {
-      // Log more frequent updates at VERBOSE level
-      ESP_LOGV(TAG, "Presence unchanged (throttled): %s at %.1f cm", 
-              is_presence ? "ON" : "OFF", distance_cm);
+      // Log more frequent updates at DEBUG level
+      ESP_LOGD(TAG, "Presence unchanged: %s at %.1f cm", 
+               is_presence ? "ON" : "OFF", distance_cm);
     }
   } else {
     ESP_LOGW(TAG, "Presence binary sensor not configured!");
@@ -1029,14 +1007,8 @@ void HLKLD2402Component::process_line_(const std::string &line) {
   if (line == "OFF") {
     ESP_LOGD(TAG, "No target detected");
     if (this->presence_binary_sensor_ != nullptr && this->presence_binary_sensor_->state) {
-      uint32_t now = millis();
-      bool throttled = (now - last_presence_update_ < presence_throttle_ms_);
-      
-      if (!throttled) {
-        this->presence_binary_sensor_->publish_state(false);
-        last_presence_update_ = now;
-        ESP_LOGI(TAG, "Presence changed: OFF (from text data)");
-      }
+      this->presence_binary_sensor_->publish_state(false);
+      ESP_LOGI(TAG, "Presence changed: OFF (from text data)");
     }
         
     // Only update the distance sensor if not throttled
