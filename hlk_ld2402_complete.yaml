@@ -268,12 +268,12 @@ button:
   - platform: template
     name: "${friendly_name} Commit Parameter Changes"
     on_press:
-      - lambda: id(radar).commit_batch_update();
+      - lambda: id(radar_sensor).commit_batch_update();  # Changed from radar to radar_sensor
       
   - platform: template
     name: "${friendly_name} Cancel Parameter Changes"
     on_press:
-      - lambda: id(radar).cancel_batch_update();
+      - lambda: id(radar_sensor).cancel_batch_update();  # Changed from radar to radar_sensor
 
   - platform: template
     name: "Check Radar Firmware Version"
