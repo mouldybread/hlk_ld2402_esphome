@@ -13,9 +13,6 @@ void HLKLD2402Component::setup() {
   // Initialize presence update flag to ensure first reading gets published
   this->has_presence_update_ = true;
   
-  // Clear any data in the buffer
-  flush_read_buffer_();
-  
   // Put the module into engineering mode on startup
   ESP_LOGD(TAG, "Enabling engineering mode...");
   if (enable_configuration_()) {
@@ -39,15 +36,6 @@ void HLKLD2402Component::setup() {
   }
 }
 
-void HLKLD2402Component::flush_read_buffer_() {
-  // Read all available bytes to clear any pending data
-  uint32_t start = millis();
-  while (available() && millis() - start < 100) { // Timeout after 100ms
-    read();
-    delay(1);
-  }
-}
-
 void HLKLD2402Component::dump_config() {
   ESP_LOGCONFIG(TAG, "HLK-LD2402:");
   ESP_LOGCONFIG(TAG, "  Max Distance: %.1fm", this->max_distance_);
@@ -60,12 +48,7 @@ void HLKLD2402Component::loop() {
   while (available()) {
     uint8_t byte = read();
     
-    // Try to process as ACK frame first
-    if (process_ack_frame_(byte)) {
-      continue;  // Byte was consumed by ACK frame processing
-    }
-    
-    // Try to process as binary frame next
+    // Try to process as binary frame first
     if (process_binary_frame_(byte)) {
       continue;  // Byte was consumed by binary frame processing
     }
@@ -113,125 +96,6 @@ void HLKLD2402Component::loop() {
     
     this->last_publish_time_ = now;
   }
-}
-
-bool HLKLD2402Component::process_ack_frame_(uint8_t byte) {
-  // Frame header is FD FC FB FA
-  static const uint8_t ACK_HEADER[4] = {0xFD, 0xFC, 0xFB, 0xFA};
-  // Frame footer is 04 03 02 01
-  static const uint8_t ACK_FOOTER[4] = {0x04, 0x03, 0x02, 0x01};
-  
-  // Looking for ACK frame header
-  if (!in_ack_frame_) {
-    if (byte == ACK_HEADER[ack_frame_header_pos_]) {
-      ack_buffer_[ack_frame_header_pos_] = byte;
-      ack_frame_header_pos_++;
-      if (ack_frame_header_pos_ == 4) {
-        // Header found, start collecting ACK data
-        ESP_LOGV(TAG, "ACK frame header detected");
-        in_ack_frame_ = true;
-        ack_buffer_pos_ = 4;  // Start after header
-        ack_frame_header_pos_ = 0;  // Reset for future headers
-      }
-      return true;
-    } else {
-      // Reset header detection if sequence breaks
-      ack_frame_header_pos_ = 0;
-      return false;
-    }
-  }
-  
-  // In ACK frame, collect data
-  if (in_ack_frame_) {
-    // Check for buffer overflow
-    if (ack_buffer_pos_ >= MAX_ACK_BUFFER_SIZE - 1) {
-      ESP_LOGW(TAG, "ACK buffer overflow, resetting");
-      in_ack_frame_ = false;
-      ack_buffer_pos_ = 0;
-      return false;
-    }
-    
-    ack_buffer_[ack_buffer_pos_++] = byte;
-    
-    // Check length bytes (bytes 4-5)
-    if (ack_buffer_pos_ == 6) {
-      uint16_t length = ack_buffer_[4] | (ack_buffer_[5] << 8);
-      ESP_LOGV(TAG, "ACK frame length: %d", length);
-      
-      // ACK frame is usually 8 bytes (4 header + 2 length + 2 command bytes) or  
-      // 10 bytes (4 header + 2 length + 2 command + 2 status bytes) plus 4 footer bytes
-      if (length != 2 && length != 4) {
-        ESP_LOGW(TAG, "Invalid ACK frame length: %d", length);
-        in_ack_frame_ = false;
-        ack_buffer_pos_ = 0;
-        return false;
-      }
-    }
-    
-    // Check for minimum expected ACK frame size: 
-    // 4 (header) + 2 (length) + 2 (cmd) + 2 (status optional) + 4 (footer) = 12-14 bytes
-    if (ack_buffer_pos_ >= 12) {
-      // Check if we have a complete frame
-      uint16_t expected_total_len = ack_buffer_[4] + (ack_buffer_[5] << 8) + 8; // Data length + header (4) + footer (4)
-      
-      if (ack_buffer_pos_ >= expected_total_len) {
-        // Check footer
-        bool valid_footer = true;
-        for (int i = 0; i < 4; i++) {
-          if (ack_buffer_[ack_buffer_pos_ - 4 + i] != ACK_FOOTER[i]) {
-            valid_footer = false;
-            break;
-          }
-        }
-        
-        if (valid_footer) {
-          // Extract command and status
-          ack_cmd_ = ack_buffer_[6] | (ack_buffer_[7] << 8);
-          
-          // Status is present in longer frames with length 4
-          if (ack_buffer_[4] == 0x04 && ack_buffer_[5] == 0x00) {
-            ack_status_ = ack_buffer_[8] | (ack_buffer_[9] << 8);
-          } else {
-            ack_status_ = 0; // No status in shorter frames
-          }
-          
-          ESP_LOGD(TAG, "ACK received for command 0x%04X with status 0x%04X", ack_cmd_, ack_status_);
-          ack_received_ = true;
-        } else {
-          ESP_LOGW(TAG, "Invalid ACK frame footer");
-        }
-        
-        // Reset ACK frame processing
-        in_ack_frame_ = false;
-        ack_buffer_pos_ = 0;
-      }
-    }
-    
-    return true;
-  }
-  
-  return false;
-}
-
-bool HLKLD2402Component::wait_for_ack_(uint16_t expected_cmd, uint32_t timeout_ms) {
-  uint32_t start_time = millis();
-  ack_received_ = false;
-  
-  while (millis() - start_time < timeout_ms) {
-    if (available()) {
-      uint8_t byte = read();
-      if (process_ack_frame_(byte)) {
-        if (ack_received_ && ack_cmd_ == expected_cmd) {
-          // ACK received for the expected command
-          return ack_status_ == 0; // Return true if status is success (0)
-        }
-      }
-    }
-    delay(5); // Short delay to avoid tight loop
-  }
-  
-  ESP_LOGE(TAG, "Timeout waiting for ACK to command 0x%04X", expected_cmd);
-  return false;
 }
 
 bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
@@ -440,21 +304,20 @@ bool HLKLD2402Component::enable_configuration_() {
   // Command: 0x00FF with parameter 0x0001
   uint8_t data[2] = {0x01, 0x00};  // Little-endian: 0x0001
   send_command_(0x00FF, data, 2);
-  return wait_for_ack_(0x00FF, 500);  // Wait for ACK with timeout
+  return true;  // Simplified implementation without checking ACK
 }
 
 bool HLKLD2402Component::set_engineering_mode_() {
   // Command: 0x0012 with parameter 0x00000004
-  // According to section 5.2.8, parameter value should be 4 bytes
-  uint8_t data[4] = {0x04, 0x00, 0x00, 0x00};  // Little-endian: 0x00000004 (corrected format)
-  send_command_(0x0012, data, 4);
-  return wait_for_ack_(0x0012, 500);  // Wait for ACK with timeout
+  uint8_t data[6] = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00};  // Little-endian: 0x00000004
+  send_command_(0x0012, data, 6);
+  return true;  // Simplified implementation without checking ACK
 }
 
 bool HLKLD2402Component::exit_configuration_() {
   // Command: 0x00FE with no parameters
   send_command_(0x00FE);
-  return wait_for_ack_(0x00FE, 500);  // Wait for ACK with timeout
+  return true;  // Simplified implementation without checking ACK
 }
 
 } // namespace hlk_ld2402

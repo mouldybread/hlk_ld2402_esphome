@@ -46,11 +46,6 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   void handle_binary_frame_();
   void reset_binary_frame_();
   
-  // ACK processing
-  bool wait_for_ack_(uint16_t expected_cmd, uint32_t timeout_ms = 500);
-  bool process_ack_frame_(uint8_t byte);
-  void flush_read_buffer_();
-  
   // Engineering mode commands
   void send_command_(uint16_t command, const uint8_t *data = nullptr, size_t data_len = 0);
   bool enable_configuration_();
@@ -64,22 +59,12 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   uint32_t last_read_time_{0};
   
   // Binary frame variables
-  static const uint16_t MAX_BINARY_BUFFER_SIZE = 256;
+  static const uint16_t MAX_BINARY_BUFFER_SIZE = 256;  // Changed from uint8_t to uint16_t
   uint8_t binary_buffer_[MAX_BINARY_BUFFER_SIZE];
   size_t binary_buffer_pos_{0};
   uint8_t frame_header_pos_{0};
   uint16_t expected_frame_length_{0};
   bool in_binary_frame_{false};
-  
-  // ACK frame variables
-  static const uint8_t MAX_ACK_BUFFER_SIZE = 32;
-  uint8_t ack_buffer_[MAX_ACK_BUFFER_SIZE];
-  size_t ack_buffer_pos_{0};
-  bool in_ack_frame_{false};
-  uint8_t ack_frame_header_pos_{0};
-  uint16_t ack_cmd_{0};
-  uint16_t ack_status_{0};
-  bool ack_received_{false};
   
   // Configuration parameters
   float max_distance_{10.0}; // Default 10 meters
