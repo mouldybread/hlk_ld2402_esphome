@@ -52,7 +52,7 @@ hlk_ld2402:
   id: radar_sensor
   max_distance: 10.0  # Maximum detection distance in meters
   timeout: 5  # Timeout in seconds
-  update_interval: 1s  # Update every second
+  distance_update_interval: 1s  # Update distance sensor every second
 
 # Configure the Distance sensor separately as a platform
 sensor:
@@ -64,4 +64,3 @@ sensor:
     unit_of_measurement: "cm"
     accuracy_decimals: 1
     icon: "mdi:radar"
-    throttle: 1000ms  # Update every second

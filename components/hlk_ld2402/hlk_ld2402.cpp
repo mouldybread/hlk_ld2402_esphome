@@ -15,7 +15,7 @@ void HLKLD2402Component::dump_config() {
   ESP_LOGCONFIG(TAG, "HLK-LD2402:");
   ESP_LOGCONFIG(TAG, "  Max Distance: %.1fm", this->max_distance_);
   ESP_LOGCONFIG(TAG, "  Timeout: %dms", this->timeout_);
-  ESP_LOGCONFIG(TAG, "  Update Interval: %dms", this->update_interval_);
+  ESP_LOGCONFIG(TAG, "  Distance Update Interval: %dms", this->distance_update_interval_);
   this->check_uart_settings(115200);
 }
 
@@ -49,7 +49,7 @@ void HLKLD2402Component::loop() {
   
   // Check if it's time to publish an update
   uint32_t now = millis();
-  if (now - this->last_publish_time_ >= this->update_interval_) {
+  if (now - this->last_publish_time_ >= this->distance_update_interval_) {
     // Only publish if we have new data since last publish
     if (this->has_new_data_ && this->distance_sensor_ != nullptr) {
       this->distance_sensor_->publish_distance(this->last_distance_);
