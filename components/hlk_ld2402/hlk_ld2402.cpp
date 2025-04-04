@@ -58,6 +58,11 @@ void HLKLD2402Component::process_buffer_() {
     }
   }
   
+  // Skip empty lines
+  if (line.empty() || line.find_first_not_of(" \n\r\t") == std::string::npos) {
+    return;
+  }
+  
   // Log the raw data we received
   ESP_LOGV(TAG, "Received data: '%s'", line.c_str());
   
