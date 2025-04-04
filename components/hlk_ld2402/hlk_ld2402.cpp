@@ -44,18 +44,7 @@ void HLKLD2402Component::dump_config() {
   this->check_uart_settings(115200);
 }
 
-int HLKLD2402Component::available() {
-  return this->input_buffer_.size();
-}
-
-int HLKLD2402Component::read() {
-  if (this->input_buffer_.empty()) {
-    return -1;
-  }
-  int value = this->input_buffer_.front();
-  this->input_buffer_.erase(this->input_buffer_.begin());
-  return value;
-}
+// Remove the available() and read() implementations
 
 int HLKLD2402Component::my_available() {
   return this->input_buffer_.size();
