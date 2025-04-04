@@ -8,12 +8,14 @@ static const char *const TAG = "hlk_ld2402";
 
 void HLKLD2402Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 component...");
+  this->last_publish_time_ = millis();
 }
 
 void HLKLD2402Component::dump_config() {
   ESP_LOGCONFIG(TAG, "HLK-LD2402:");
   ESP_LOGCONFIG(TAG, "  Max Distance: %.1fm", this->max_distance_);
   ESP_LOGCONFIG(TAG, "  Timeout: %dms", this->timeout_);
+  ESP_LOGCONFIG(TAG, "  Update Interval: %dms", this->update_interval_);
   this->check_uart_settings(115200);
 }
 
@@ -43,6 +45,18 @@ void HLKLD2402Component::loop() {
   // Clear buffer if it's been too long since the last read
   if (buffer_pos_ > 0 && millis() - last_read_time_ > 1000) {
     clear_buffer_();
+  }
+  
+  // Check if it's time to publish an update
+  uint32_t now = millis();
+  if (now - this->last_publish_time_ >= this->update_interval_) {
+    // Only publish if we have new data since last publish
+    if (this->has_new_data_ && this->distance_sensor_ != nullptr) {
+      this->distance_sensor_->publish_distance(this->last_distance_);
+      this->has_new_data_ = false;
+      ESP_LOGD(TAG, "Publishing buffered distance: %.2f cm", this->last_distance_);
+    }
+    this->last_publish_time_ = now;
   }
 }
 
@@ -77,13 +91,14 @@ void HLKLD2402Component::process_buffer_() {
     // Extract distance value
     float distance = atof(line.c_str() + 9); // +9 to skip "distance:"
     
-    // Check if distance is within max range and we have a sensor
-    if (distance > 0 && distance <= this->max_distance_ * 100 && this->distance_sensor_ != nullptr) { 
-      // Publish the distance value (in cm)
-      this->distance_sensor_->publish_distance(distance);
-      ESP_LOGD(TAG, "Distance updated, distance %.2f cm", distance);
+    // Check if distance is within max range
+    if (distance > 0 && distance <= this->max_distance_ * 100) { 
+      // Store the distance value (in cm) for later publishing
+      this->last_distance_ = distance;
+      this->has_new_data_ = true;
+      ESP_LOGV(TAG, "Updated buffer with new distance: %.2f cm", distance);
     } else {
-      ESP_LOGD(TAG, "Distance out of range or sensor not set: %.2f cm", distance);
+      ESP_LOGD(TAG, "Distance out of range: %.2f cm", distance);
     }
   } else if (lowercase_line == "off") {
     // No target detected
