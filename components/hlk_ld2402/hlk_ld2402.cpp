@@ -96,6 +96,13 @@ void HLKLD2402Component::loop() {
     
     this->last_publish_time_ = now;
   }
+
+  // Check for stale presence
+  if (this->presence_detected_ && (now - this->last_frame_received_time_ > 5000)) {
+    this->presence_detected_ = false;
+    this->has_presence_update_ = true;
+    ESP_LOGD(TAG, "No binary frame received for 5 seconds, setting presence to not present");
+  }
 }
 
 bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
@@ -193,6 +200,7 @@ void HLKLD2402Component::handle_binary_frame_() {
   // Always update presence status for every valid frame
   this->presence_detected_ = presence;
   this->has_presence_update_ = true;
+  this->last_frame_received_time_ = millis();
   
   ESP_LOGD(TAG, "Presence status: %s, status byte: %d", 
           presence ? "present" : "not present", status);
@@ -300,24 +308,54 @@ void HLKLD2402Component::send_command_(uint16_t command, const uint8_t *data, si
   this->flush();
 }
 
+bool HLKLD2402Component::read_ack_(uint16_t command) {
+  uint8_t ack_buffer[8];
+  if (this->available() < 8) {
+    ESP_LOGW(TAG, "ACK timeout waiting for 8 bytes");
+    return false;
+  }
+  this->read_bytes(ack_buffer, 8);
+
+  uint16_t received_command = (ack_buffer[5] << 8) | ack_buffer[4];
+  uint16_t ack_status = (ack_buffer[7] << 8) | ack_buffer[6];
+
+  if (ack_buffer[0] != 0xFD || ack_buffer[1] != 0xFC || ack_buffer[2] != 0xFB || ack_buffer[3] != 0xFA) {
+    ESP_LOGW(TAG, "Invalid ACK header");
+    return false;
+  }
+
+  if (received_command != (command | 0x0100)) {
+    ESP_LOGW(TAG, "Invalid ACK command: expected 0x%04X, got 0x%04X", command | 0x0100, received_command);
+    return false;
+  }
+
+  if (ack_status != 0x0000) {
+    ESP_LOGW(TAG, "Command 0x%04X failed, ACK status: 0x%04X", command, ack_status);
+    return false;
+  }
+
+  ESP_LOGD(TAG, "Command 0x%04X successful", command);
+  return true;
+}
+
 bool HLKLD2402Component::enable_configuration_() {
   // Command: 0x00FF with parameter 0x0001
   uint8_t data[2] = {0x01, 0x00};  // Little-endian: 0x0001
   send_command_(0x00FF, data, 2);
-  return true;  // Simplified implementation without checking ACK
+  return read_ack_(0x00FF);
 }
 
 bool HLKLD2402Component::set_engineering_mode_() {
   // Command: 0x0012 with parameter 0x00000004
   uint8_t data[6] = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00};  // Little-endian: 0x00000004
   send_command_(0x0012, data, 6);
-  return true;  // Simplified implementation without checking ACK
+  return read_ack_(0x0012);
 }
 
 bool HLKLD2402Component::exit_configuration_() {
   // Command: 0x00FE with no parameters
   send_command_(0x00FE);
-  return true;  // Simplified implementation without checking ACK
+  return read_ack_(0x00FE);
 }
 
 } // namespace hlk_ld2402

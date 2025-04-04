@@ -79,6 +79,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   // Presence data
   bool presence_detected_{false};
   bool has_presence_update_{false};
+  uint32_t last_frame_received_time_{0};
   
   // Sensors
   HlkLd2402DistanceSensor *distance_sensor_{nullptr};
