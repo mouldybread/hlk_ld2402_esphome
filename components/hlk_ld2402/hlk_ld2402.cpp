@@ -34,7 +34,6 @@ void HLKLD2402Component::setup() {
   } else {
     ESP_LOGE(TAG, "Failed to enable configuration mode");
   }
-  ESP_LOGI(TAG, "Initialized presence detection - starting state: not present");
 }
 
 void HLKLD2402Component::dump_config() {
@@ -90,8 +89,6 @@ void HLKLD2402Component::loop() {
     
     // Publish presence update if available
     if (this->has_presence_update_ && this->presence_sensor_ != nullptr) {
-      ESP_LOGI(TAG, "Publishing presence state: %s", 
-              this->presence_detected_ ? "PRESENT" : "NOT PRESENT");
       this->presence_sensor_->publish_presence(this->presence_detected_);
       this->has_presence_update_ = false;
       ESP_LOGD(TAG, "Publishing presence state: %s", this->presence_detected_ ? "present" : "not present");
@@ -106,17 +103,14 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
   static const uint8_t FRAME_HEADER[4] = {0xF4, 0xF3, 0xF2, 0xF1};
   // Frame footer is F8 F7 F6 F5
   static const uint8_t FRAME_FOOTER[4] = {0xF8, 0xF7, 0xF6, 0xF5};
-  static uint32_t frame_count = 0; // Add a frame counter
   
   // Looking for frame header
   if (!in_binary_frame_) {
     if (byte == FRAME_HEADER[frame_header_pos_]) {
-      ESP_LOGV(TAG, "Header byte %d matched: 0x%02X", frame_header_pos_, byte);
       binary_buffer_[frame_header_pos_] = byte;
       frame_header_pos_++;
       if (frame_header_pos_ == 4) {
         // Header found, start collecting frame data
-        ESP_LOGD(TAG, "Binary frame header detected - starting collection");
         in_binary_frame_ = true;
         binary_buffer_pos_ = 4;  // Start after header
         frame_header_pos_ = 0;  // Reset for future headers
@@ -124,10 +118,6 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
       return true;
     } else {
       // Reset header detection if sequence breaks
-      if (frame_header_pos_ > 0) {
-        ESP_LOGV(TAG, "Header sequence broken at pos %d with byte 0x%02X", 
-                frame_header_pos_, byte);
-      }
       frame_header_pos_ = 0;
       return false;
     }
@@ -169,19 +159,7 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
       }
       
       if (valid_footer) {
-        frame_count++;
-        ESP_LOGD(TAG, "Valid binary frame #%u received, length: %d", 
-                  frame_count, binary_buffer_pos_);
-        
-        // Print hex dump of the first few bytes
-        char hex_buffer[100] = {0};
-        char* pos = hex_buffer;
-        int bytes_to_print = std::min(16, (int)binary_buffer_pos_);
-        for (int i = 0; i < bytes_to_print; i++) {
-          pos += sprintf(pos, "%02X ", binary_buffer_[i]);
-        }
-        ESP_LOGD(TAG, "Frame header+data: %s...", hex_buffer);
-        
+        ESP_LOGV(TAG, "Valid binary frame received, length: %d", binary_buffer_pos_);
         handle_binary_frame_();
       } else {
         ESP_LOGW(TAG, "Invalid footer in binary frame");
@@ -205,7 +183,6 @@ void HLKLD2402Component::handle_binary_frame_() {
   
   // Status byte is at position 6
   uint8_t status = binary_buffer_[6];
-  ESP_LOGD(TAG, "Status byte: 0x%02X (%d)", status, status);
   
   // Distance is 2 bytes at position 7 (little-endian)
   uint16_t distance = binary_buffer_[7] | (binary_buffer_[8] << 8);
@@ -213,15 +190,9 @@ void HLKLD2402Component::handle_binary_frame_() {
   // Update presence based on status (0 = no person, 1 or 2 = person present)
   bool presence = (status == 1 || status == 2);
   
-  ESP_LOGD(TAG, "Raw presence detection: status=%d, presence=%s", 
-           status, presence ? "TRUE" : "FALSE");
-  
   // Always update presence status for every valid frame
   this->presence_detected_ = presence;
   this->has_presence_update_ = true;
-  
-  ESP_LOGI(TAG, "Presence update: %s, status byte: %d", 
-          presence ? "PRESENT" : "NOT PRESENT", status);
   
   ESP_LOGD(TAG, "Presence status: %s, status byte: %d", 
           presence ? "present" : "not present", status);
