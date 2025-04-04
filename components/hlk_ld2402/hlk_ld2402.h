@@ -7,6 +7,12 @@
 namespace esphome {
 namespace hlk_ld2402 {
 
+// Dedicated distance sensor class
+class HlkLd2402DistanceSensor : public sensor::Sensor {
+ public:
+  void publish_distance(float distance) { this->publish_state(distance); }
+};
+
 class HLKLD2402Component : public Component, public uart::UARTDevice {
  public:
   HLKLD2402Component() = default;
@@ -20,7 +26,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   void set_uart(uart::UARTComponent *uart) { this->set_uart_parent(uart); }
   void set_max_distance(float max_distance) { max_distance_ = max_distance; }
   void set_timeout(uint32_t timeout) { timeout_ = timeout * 1000; } // Convert to milliseconds
-  void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
+  void set_distance_sensor(HlkLd2402DistanceSensor *distance_sensor) { distance_sensor_ = distance_sensor; }
 
  protected:
   // Buffer handling
@@ -38,7 +44,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   uint32_t timeout_{5000};   // Default 5 seconds in ms
   
   // Sensors
-  sensor::Sensor *distance_sensor_{nullptr};
+  HlkLd2402DistanceSensor *distance_sensor_{nullptr};
 };
 
 } // namespace hlk_ld2402

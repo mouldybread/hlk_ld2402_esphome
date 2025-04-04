@@ -1,20 +1,23 @@
 #include "hlk_ld2402.h"
+#include "esphome/core/log.h"
 
-using namespace esphome;
+namespace esphome {
+namespace hlk_ld2402 {
 
-static const char *TAG = "hlk_ld2402";
+static const char *const TAG = "hlk_ld2402";
 
-void HLKLD2402::setup() {
-  // Optional: Set initial state if needed
-  ESP_LOGI(TAG, "HLK-LD2402 sensor initialized");
+void HLKLD2402Component::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 component...");
 }
 
-void HLKLD2402::update() {
-  // This will be called every update_interval (default 1 second)
-  // We don't need to do anything here as we're reading continuously in loop()
+void HLKLD2402Component::dump_config() {
+  ESP_LOGCONFIG(TAG, "HLK-LD2402:");
+  ESP_LOGCONFIG(TAG, "  Max Distance: %.1fm", this->max_distance_);
+  ESP_LOGCONFIG(TAG, "  Timeout: %dms", this->timeout_);
+  this->check_uart_settings(115200);
 }
 
-void HLKLD2402::loop() {
+void HLKLD2402Component::loop() {
   // Check if there are new bytes available in the UART
   while (available()) {
     char c = read();
@@ -43,31 +46,42 @@ void HLKLD2402::loop() {
   }
 }
 
-void HLKLD2402::process_buffer_() {
+void HLKLD2402Component::process_buffer_() {
   // Convert buffer to string for easier processing
   std::string line(buffer_);
   
   // Trim whitespace
-  line.erase(line.find_last_not_of(" \n\r\t") + 1);
+  if (!line.empty()) {
+    size_t last = line.find_last_not_of(" \n\r\t");
+    if (last != std::string::npos) {
+      line.erase(last + 1);
+    }
+  }
   
   // Check if we have a valid distance reading
   if (line.find("Distance:") != std::string::npos) {
     // Extract distance value
     float distance = atof(line.c_str() + 9); // +9 to skip "Distance:"
     
-    // Publish the distance value
-    distance_sensor_.publish_state(distance);
-    
-    // Log the updated distance
-    ESP_LOGI(TAG, "Distance updated, distance %.2f", distance);
+    // Check if distance is within max range and we have a sensor
+    if (distance > 0 && distance <= this->max_distance_ * 100 && this->distance_sensor_ != nullptr) { 
+      // Publish the distance value (in cm)
+      this->distance_sensor_->publish_distance(distance);
+      ESP_LOGD(TAG, "Distance updated, distance %.2f cm", distance);
+    } else {
+      ESP_LOGD(TAG, "Distance out of range or sensor not set: %.2f cm", distance);
+    }
   } else if (line == "OFF") {
     // No target detected
-    ESP_LOGI(TAG, "No target detected");
+    ESP_LOGD(TAG, "No target detected");
   }
 }
 
-void HLKLD2402::clear_buffer_() {
+void HLKLD2402Component::clear_buffer_() {
   // Reset buffer
   buffer_pos_ = 0;
   last_read_time_ = millis();
 }
+
+} // namespace hlk_ld2402
+} // namespace esphome
