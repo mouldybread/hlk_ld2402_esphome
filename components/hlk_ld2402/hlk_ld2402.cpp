@@ -1,5 +1,6 @@
 #include "hlk_ld2402.h"
 #include "esphome/core/log.h"
+#include "esphome/core/defines.h"
 
 namespace esphome {
 namespace hlk_ld2402 {
@@ -310,11 +311,18 @@ void HLKLD2402Component::send_command_(uint16_t command, const uint8_t *data, si
 
 bool HLKLD2402Component::read_ack_(uint16_t command) {
   uint8_t ack_buffer[8];
-  if (this->available() < 8) {
-    ESP_LOGW(TAG, "ACK timeout waiting for 8 bytes");
-    return false;
+  uint32_t start_time = millis();
+  
+  for (int i = 0; i < 8; i++) {
+    while (!this->available()) {
+      if (millis() - start_time > this->timeout_) {
+        ESP_LOGW(TAG, "ACK timeout waiting for byte %d", i + 1);
+        return false;
+      }
+      delay(1);  // Small delay to prevent busy-waiting
+    }
+    ack_buffer[i] = this->read();
   }
-  this->read_bytes(ack_buffer, 8);
 
   uint16_t received_command = (ack_buffer[5] << 8) | ack_buffer[4];
   uint16_t ack_status = (ack_buffer[7] << 8) | ack_buffer[6];
