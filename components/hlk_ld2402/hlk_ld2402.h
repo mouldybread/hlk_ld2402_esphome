@@ -4,6 +4,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/uart/uart.h"
+#include <vector>
 
 namespace esphome {
 namespace hlk_ld2402 {
@@ -35,6 +36,9 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   void set_distance_sensor(HlkLd2402DistanceSensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_presence_sensor(HlkLd2402PresenceSensor *presence_sensor) { presence_sensor_ = presence_sensor; }
   void set_distance_update_interval(uint32_t distance_update_interval) { distance_update_interval_ = distance_update_interval; }
+
+  int available() override;
+  int read() override;
 
  protected:
   // Buffer handling
@@ -85,6 +89,9 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   // Sensors
   HlkLd2402DistanceSensor *distance_sensor_{nullptr};
   HlkLd2402PresenceSensor *presence_sensor_{nullptr};
+
+  // Input buffer
+  std::vector<uint8_t> input_buffer_;
 };
 
 } // namespace hlk_ld2402

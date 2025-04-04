@@ -44,7 +44,26 @@ void HLKLD2402Component::dump_config() {
   this->check_uart_settings(115200);
 }
 
+int HLKLD2402Component::available() {
+  return this->input_buffer_.size();
+}
+
+int HLKLD2402Component::read() {
+  if (this->input_buffer_.empty()) {
+    return -1;
+  }
+  int value = this->input_buffer_.front();
+  this->input_buffer_.erase(this->input_buffer_.begin());
+  return value;
+}
+
 void HLKLD2402Component::loop() {
+  // Read all available bytes from UART into the input buffer
+  while (this->uart_available()) {
+    uint8_t byte = this->uart_read();
+    this->input_buffer_.push_back(byte);
+  }
+  
   // Check if there are new bytes available in the UART
   while (available()) {
     uint8_t byte = read();
@@ -310,24 +329,33 @@ void HLKLD2402Component::send_command_(uint16_t command, const uint8_t *data, si
 }
 
 bool HLKLD2402Component::read_ack_(uint16_t command) {
-  uint8_t ack_buffer[8];
+  std::vector<uint8_t> ack_bytes;
   uint32_t start_time = millis();
   
   for (int i = 0; i < 8; i++) {
-    while (!this->available()) {
+    while (this->input_buffer_.empty()) {
       if (millis() - start_time > this->timeout_) {
         ESP_LOGW(TAG, "ACK timeout waiting for byte %d", i + 1);
+        // Clear the input buffer to avoid getting stuck
+        this->input_buffer_.clear();
         return false;
       }
       delay(1);  // Small delay to prevent busy-waiting
+      
+      // Read any available bytes from UART to the input buffer
+      while (this->uart_available()) {
+        uint8_t byte = this->uart_read();
+        this->input_buffer_.push_back(byte);
+      }
     }
-    ack_buffer[i] = this->read();
+    ack_bytes.push_back(this->input_buffer_.front());
+    this->input_buffer_.erase(this->input_buffer_.begin());
   }
 
-  uint16_t received_command = (ack_buffer[5] << 8) | ack_buffer[4];
-  uint16_t ack_status = (ack_buffer[7] << 8) | ack_buffer[6];
+  uint16_t received_command = (ack_bytes[5] << 8) | ack_bytes[4];
+  uint16_t ack_status = (ack_bytes[7] << 8) | ack_bytes[6];
 
-  if (ack_buffer[0] != 0xFD || ack_buffer[1] != 0xFC || ack_buffer[2] != 0xFB || ack_buffer[3] != 0xFA) {
+  if (ack_bytes[0] != 0xFD || ack_bytes[1] != 0xFC || ack_bytes[2] != 0xFB || ack_bytes[3] != 0xFA) {
     ESP_LOGW(TAG, "Invalid ACK header");
     return false;
   }
