@@ -10,6 +10,9 @@ void HLKLD2402Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 component...");
   this->last_publish_time_ = millis();
   
+  // Initialize presence update flag to ensure first reading gets published
+  this->has_presence_update_ = true;
+  
   // Put the module into engineering mode on startup
   ESP_LOGD(TAG, "Enabling engineering mode...");
   if (enable_configuration_()) {
@@ -172,6 +175,29 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
 }
 
 void HLKLD2402Component::handle_binary_frame_() {
+  // We need at least header(4) + length(2) + status(1) + distance(2) bytes
+  if (binary_buffer_pos_ < 9) {
+    ESP_LOGW(TAG, "Binary frame too short");
+    return;
+  }
+  
+  // Status byte is at position 6
+  uint8_t status = binary_buffer_[6];
+  
+  // Distance is 2 bytes at position 7 (little-endian)
+  uint16_t distance = binary_buffer_[7] | (binary_buffer_[8] << 8);
+  
+  // Update presence based on status (0 = no person, 1 or 2 = person present)
+  bool presence = (status == 1 || status == 2);
+  
+  // Always update presence status for every valid frame
+  this->presence_detected_ = presence;
+  this->has_presence_update_ = true;
+  
+  ESP_LOGD(TAG, "Presence status: %s, status byte: %d", 
+          presence ? "present" : "not present", status);
+  
+  // Optionally update distance from binary frame too
   // We need at least header(4) + length(2) + status(1) + distance(2) bytes
   if (binary_buffer_pos_ < 9) {
     ESP_LOGW(TAG, "Binary frame too short");
