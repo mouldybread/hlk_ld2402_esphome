@@ -714,13 +714,13 @@ bool HLKLD2402Component::process_distance_frame_(const std::vector<uint8_t> &fra
   ESP_LOGI(TAG, "- Bytes 5-6: Length = %02X %02X (%d bytes)", 
            frame_data[5], frame_data[6], frame_data[5] | (frame_data[6] << 8));
   
-  // CORRECTED: Check for status at position 7 (index 7), which follows header(4) + type(1) + length(2)
-  ESP_LOGI(TAG, "- Byte  7: Status = %02X (%s)", 
-           frame_data.size() > 7 ? frame_data[7] : 0,
-           frame_data.size() > 7 ? (
-             frame_data[7] == 0 ? "no person" : 
-             frame_data[7] == 1 ? "person moving" : 
-             frame_data[7] == 2 ? "stationary person" : "unknown") : "unknown");
+  // CORRECTED: Get detection status from position 7 (index 6), which follows header(4) + type(1) + length(2)
+  ESP_LOGI(TAG, "- Byte  6: Status = %02X (%s)", 
+           frame_data.size() > 6 ? frame_data[6] : 0,
+           frame_data.size() > 6 ? (
+             frame_data[6] == 0 ? "no person" : 
+             frame_data[6] == 1 ? "person moving" : 
+             frame_data[6] == 2 ? "stationary person" : "unknown") : "unknown");
   
   // Parse the data length from the frame
   uint16_t data_length = frame_data[5] | (frame_data[6] << 8);
