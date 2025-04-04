@@ -37,8 +37,8 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   void set_presence_sensor(HlkLd2402PresenceSensor *presence_sensor) { presence_sensor_ = presence_sensor; }
   void set_distance_update_interval(uint32_t distance_update_interval) { distance_update_interval_ = distance_update_interval; }
 
-  int available() override;
-  int read() override;
+  int my_available();
+  int my_read();
 
  protected:
   // Buffer handling

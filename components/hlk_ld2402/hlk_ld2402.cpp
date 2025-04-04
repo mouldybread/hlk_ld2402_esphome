@@ -57,16 +57,29 @@ int HLKLD2402Component::read() {
   return value;
 }
 
+int HLKLD2402Component::my_available() {
+  return this->input_buffer_.size();
+}
+
+int HLKLD2402Component::my_read() {
+  if (this->input_buffer_.empty()) {
+    return -1;
+  }
+  int value = this->input_buffer_.front();
+  this->input_buffer_.erase(this->input_buffer_.begin());
+  return value;
+}
+
 void HLKLD2402Component::loop() {
   // Read all available bytes from UART into the input buffer
-  while (this->uart_available()) {
-    uint8_t byte = this->uart_read();
+  while (uart::UARTDevice::available()) {
+    uint8_t byte = uart::UARTDevice::read();
     this->input_buffer_.push_back(byte);
   }
   
   // Check if there are new bytes available in the UART
-  while (available()) {
-    uint8_t byte = read();
+  while (my_available()) {
+    uint8_t byte = my_read();
     
     // Try to process as binary frame first
     if (process_binary_frame_(byte)) {
@@ -343,8 +356,8 @@ bool HLKLD2402Component::read_ack_(uint16_t command) {
       delay(1);  // Small delay to prevent busy-waiting
       
       // Read any available bytes from UART to the input buffer
-      while (this->uart_available()) {
-        uint8_t byte = this->uart_read();
+      while (uart::UARTDevice::available()) {
+        uint8_t byte = uart::UARTDevice::read();
         this->input_buffer_.push_back(byte);
       }
     }
