@@ -59,7 +59,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   uint32_t last_read_time_{0};
   
   // Binary frame variables
-  static const uint8_t MAX_BINARY_BUFFER_SIZE = 256;
+  static const uint16_t MAX_BINARY_BUFFER_SIZE = 256;  // Changed from uint8_t to uint16_t
   uint8_t binary_buffer_[MAX_BINARY_BUFFER_SIZE];
   size_t binary_buffer_pos_{0};
   uint8_t frame_header_pos_{0};
