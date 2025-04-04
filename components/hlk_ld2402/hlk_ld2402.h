@@ -25,7 +25,6 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   // Setters for configuration
   void set_uart(uart::UARTComponent *uart) { this->set_uart_parent(uart); }
   void set_max_distance(float max_distance) { max_distance_ = max_distance; }
-  void set_timeout(uint32_t timeout) { timeout_ = timeout * 1000; } // Convert to milliseconds
   void set_distance_sensor(HlkLd2402DistanceSensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_distance_update_interval(uint32_t distance_update_interval) { distance_update_interval_ = distance_update_interval; }
 
@@ -33,6 +32,12 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   // Buffer handling
   void process_buffer_();
   void clear_buffer_();
+  
+  // Engineering mode commands
+  void send_command_(uint16_t command, const uint8_t *data = nullptr, size_t data_len = 0);
+  bool enable_configuration_();
+  bool set_engineering_mode_();
+  bool exit_configuration_();
 
   // Component variables
   static const uint8_t MAX_BUFFER_SIZE = 64;

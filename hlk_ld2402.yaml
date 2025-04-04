@@ -51,7 +51,6 @@ hlk_ld2402:
   uart_id: uart_bus
   id: radar_sensor
   max_distance: 10.0  # Maximum detection distance in meters
-  timeout: 5  # Timeout in seconds
   distance_update_interval: 1s  # Update distance sensor every second
 
 # Configure the Distance sensor separately as a platform
