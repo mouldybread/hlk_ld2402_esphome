@@ -43,19 +43,25 @@ void HLKLD2402Component::dump_config() {
 void HLKLD2402Component::loop() {
   // Check if there are new bytes available in the UART
   while (available()) {
-    char c = read();
+    uint8_t byte = read();
     
+    // Try to process as binary frame first
+    if (process_binary_frame_(byte)) {
+      continue;  // Byte was consumed by binary frame processing
+    }
+    
+    // If not part of binary frame, process as text
     // Check for buffer overflow
     if (buffer_pos_ >= MAX_BUFFER_SIZE - 1) {
       clear_buffer_();
     }
     
     // Only add printable characters or newline
-    if (isprint(c) || c == '\n' || c == '\r') {
-      buffer_[buffer_pos_++] = c;
+    if (isprint(byte) || byte == '\n' || byte == '\r') {
+      buffer_[buffer_pos_++] = byte;
       
       // If we see a newline, process the buffer
-      if (c == '\n' || c == '\r') {
+      if (byte == '\n' || byte == '\r') {
         buffer_[buffer_pos_] = '\0';  // Null-terminate
         process_buffer_();
         clear_buffer_();
@@ -71,14 +77,138 @@ void HLKLD2402Component::loop() {
   // Check if it's time to publish an update
   uint32_t now = millis();
   if (now - this->last_publish_time_ >= this->distance_update_interval_) {
-    // Only publish if we have new data since last publish
+    // Publish distance update if available
     if (this->has_new_data_ && this->distance_sensor_ != nullptr) {
       this->distance_sensor_->publish_distance(this->last_distance_);
       this->has_new_data_ = false;
       ESP_LOGD(TAG, "Publishing buffered distance: %.2f cm", this->last_distance_);
     }
+    
+    // Publish presence update if available
+    if (this->has_presence_update_ && this->presence_sensor_ != nullptr) {
+      this->presence_sensor_->publish_presence(this->presence_detected_);
+      this->has_presence_update_ = false;
+      ESP_LOGD(TAG, "Publishing presence state: %s", this->presence_detected_ ? "present" : "not present");
+    }
+    
     this->last_publish_time_ = now;
   }
+}
+
+bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
+  // Frame header is F4 F3 F2 F1
+  static const uint8_t FRAME_HEADER[4] = {0xF4, 0xF3, 0xF2, 0xF1};
+  // Frame footer is F8 F7 F6 F5
+  static const uint8_t FRAME_FOOTER[4] = {0xF8, 0xF7, 0xF6, 0xF5};
+  
+  // Looking for frame header
+  if (!in_binary_frame_) {
+    if (byte == FRAME_HEADER[frame_header_pos_]) {
+      binary_buffer_[frame_header_pos_] = byte;
+      frame_header_pos_++;
+      if (frame_header_pos_ == 4) {
+        // Header found, start collecting frame data
+        in_binary_frame_ = true;
+        binary_buffer_pos_ = 4;  // Start after header
+        frame_header_pos_ = 0;  // Reset for future headers
+      }
+      return true;
+    } else {
+      // Reset header detection if sequence breaks
+      frame_header_pos_ = 0;
+      return false;
+    }
+  }
+  
+  // In binary frame, collect data
+  if (in_binary_frame_) {
+    // Check for buffer overflow
+    if (binary_buffer_pos_ >= MAX_BINARY_BUFFER_SIZE - 1) {
+      ESP_LOGW(TAG, "Binary buffer overflow, resetting");
+      reset_binary_frame_();
+      return false;
+    }
+    
+    binary_buffer_[binary_buffer_pos_++] = byte;
+    
+    // After getting header + 2 bytes for length, check expected frame length
+    if (binary_buffer_pos_ == 6) {
+      expected_frame_length_ = binary_buffer_[4] | (binary_buffer_[5] << 8);
+      ESP_LOGV(TAG, "Expected binary frame length: %d", expected_frame_length_);
+      
+      // Sanity check on frame length
+      if (expected_frame_length_ > MAX_BINARY_BUFFER_SIZE - 8) {  // Header (4) + Length (2) + Footer (4) = 10
+        ESP_LOGW(TAG, "Invalid frame length: %d", expected_frame_length_);
+        reset_binary_frame_();
+        return false;
+      }
+    }
+    
+    // Check for complete frame (header + length field + data + footer)
+    if (binary_buffer_pos_ >= 6 + expected_frame_length_ + 4) {
+      // Check footer
+      bool valid_footer = true;
+      for (int i = 0; i < 4; i++) {
+        if (binary_buffer_[binary_buffer_pos_ - 4 + i] != FRAME_FOOTER[i]) {
+          valid_footer = false;
+          break;
+        }
+      }
+      
+      if (valid_footer) {
+        ESP_LOGV(TAG, "Valid binary frame received, length: %d", binary_buffer_pos_);
+        handle_binary_frame_();
+      } else {
+        ESP_LOGW(TAG, "Invalid footer in binary frame");
+      }
+      
+      reset_binary_frame_();
+    }
+    
+    return true;
+  }
+  
+  return false;
+}
+
+void HLKLD2402Component::handle_binary_frame_() {
+  // We need at least header(4) + length(2) + status(1) + distance(2) bytes
+  if (binary_buffer_pos_ < 9) {
+    ESP_LOGW(TAG, "Binary frame too short");
+    return;
+  }
+  
+  // Status byte is at position 6
+  uint8_t status = binary_buffer_[6];
+  
+  // Distance is 2 bytes at position 7 (little-endian)
+  uint16_t distance = binary_buffer_[7] | (binary_buffer_[8] << 8);
+  
+  // Update presence based on status (0 = no person, 1 or 2 = person present)
+  bool presence = (status == 1 || status == 2);
+  
+  // If presence state changed, mark for update
+  if (presence != this->presence_detected_) {
+    this->presence_detected_ = presence;
+    this->has_presence_update_ = true;
+    
+    ESP_LOGD(TAG, "Presence state changed: %s, status byte: %d", 
+             presence ? "present" : "not present", status);
+  }
+  
+  // Optionally update distance from binary frame too
+  float distance_cm = static_cast<float>(distance);
+  if (distance > 0 && distance_cm <= this->max_distance_ * 100) {
+    ESP_LOGV(TAG, "Binary frame distance: %.1f cm", distance_cm);
+    // We could update this->last_distance_ here, but we already get text updates
+  }
+}
+
+void HLKLD2402Component::reset_binary_frame_() {
+  in_binary_frame_ = false;
+  binary_buffer_pos_ = 0;
+  frame_header_pos_ = 0;
+  expected_frame_length_ = 0;
 }
 
 void HLKLD2402Component::process_buffer_() {

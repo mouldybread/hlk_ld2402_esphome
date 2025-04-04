@@ -4,7 +4,7 @@ from esphome.components import uart
 from esphome.const import CONF_ID, CONF_TIMEOUT
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["sensor"]
+AUTO_LOAD = ["sensor", "binary_sensor"]
 
 hlk_ld2402_ns = cg.esphome_ns.namespace("hlk_ld2402")
 HLKLD2402Component = hlk_ld2402_ns.class_("HLKLD2402Component", cg.Component, uart.UARTDevice)

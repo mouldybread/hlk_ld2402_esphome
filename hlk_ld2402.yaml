@@ -63,3 +63,11 @@ sensor:
     unit_of_measurement: "cm"
     accuracy_decimals: 1
     icon: "mdi:radar"
+
+# Configure the Presence binary sensor
+binary_sensor:
+  - platform: hlk_ld2402
+    id: radar_presence
+    name: "Presence"
+    hlk_ld2402_id: radar_sensor
+    device_class: presence
