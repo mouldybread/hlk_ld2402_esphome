@@ -32,7 +32,6 @@ async def to_code(config):
     
     # Configure additional parameters
     cg.add(var.set_max_distance(config[CONF_MAX_DISTANCE]))
-    cg.add(var.set_timeout(config[CONF_TIMEOUT]))
     
     # Add distance update interval
     if CONF_DISTANCE_UPDATE_INTERVAL in config:
