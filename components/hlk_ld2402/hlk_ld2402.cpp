@@ -58,10 +58,19 @@ void HLKLD2402Component::process_buffer_() {
     }
   }
   
+  // Log the raw data we received
+  ESP_LOGV(TAG, "Received data: '%s'", line.c_str());
+  
+  // Convert to lowercase for case-insensitive comparison
+  std::string lowercase_line = line;
+  for (char &c : lowercase_line) {
+    c = tolower(c);
+  }
+  
   // Check if we have a valid distance reading
-  if (line.find("Distance:") != std::string::npos) {
+  if (lowercase_line.find("distance:") != std::string::npos) {
     // Extract distance value
-    float distance = atof(line.c_str() + 9); // +9 to skip "Distance:"
+    float distance = atof(line.c_str() + 9); // +9 to skip "distance:"
     
     // Check if distance is within max range and we have a sensor
     if (distance > 0 && distance <= this->max_distance_ * 100 && this->distance_sensor_ != nullptr) { 
@@ -71,9 +80,12 @@ void HLKLD2402Component::process_buffer_() {
     } else {
       ESP_LOGD(TAG, "Distance out of range or sensor not set: %.2f cm", distance);
     }
-  } else if (line == "OFF") {
+  } else if (lowercase_line == "off") {
     // No target detected
     ESP_LOGD(TAG, "No target detected");
+  } else {
+    // Unknown data format
+    ESP_LOGD(TAG, "Unknown data format: '%s'", line.c_str());
   }
 }
 
