@@ -51,6 +51,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   bool enable_configuration_();
   bool set_engineering_mode_();
   bool exit_configuration_();
+  bool read_ack_(uint16_t command); // Add this line
 
   // Component variables
   static const uint8_t MAX_BUFFER_SIZE = 64;
