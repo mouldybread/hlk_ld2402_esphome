@@ -52,15 +52,10 @@ hlk_ld2402:
   id: radar_sensor
   max_distance: 10.0  # Maximum detection distance in meters
   timeout: 5  # Timeout in seconds
-
-# Distance sensor - using the component name directly
-sensor:
-  - platform: hlk_ld2402  # Make sure this matches the namespace in __init__.py
-    id: radar_distance
+  distance:  # Use the new sensor config sub-key
     name: "Distance"
-    hlk_ld2402_id: radar_sensor
     device_class: distance
     unit_of_measurement: "cm"
     accuracy_decimals: 1
     icon: "mdi:radar"
-    throttle: 1000ms  # Update every second
+    throttle: 1000ms

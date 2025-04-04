@@ -1,24 +1,28 @@
 #pragma once
 
-#include "esphome.h"
 #include "esphome/core/component.h"
-#include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/uart/uart.h"
 
-class HLKLD2402 : public esphome::PollingComponent, public esphome::uart::UARTDevice {
+namespace esphome {
+namespace hlk_ld2402 {
+
+class HLKLD2402Component : public Component, public uart::UARTDevice {
  public:
-  HLKLD2402(esphome::uart::UARTComponent *parent) : 
-    esphome::PollingComponent(1000), // 1 second update interval default
-    esphome::uart::UARTDevice(parent) {}
+  HLKLD2402Component() = default;
 
-  // Return the distance sensor instance
-  esphome::sensor::Sensor *get_distance_sensor() { return &distance_sensor_; }
-
-  // Setup and update methods
+  // Set up the component
   void setup() override;
-  void update() override;
   void loop() override;
+  void dump_config() override;
 
+  // Setters for configuration
+  void set_uart(uart::UARTComponent *uart) { this->set_uart_parent(uart); }
+  void set_max_distance(float max_distance) { max_distance_ = max_distance; }
+  void set_timeout(uint32_t timeout) { timeout_ = timeout * 1000; } // Convert to milliseconds
+  void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
+
+ protected:
   // Buffer handling
   void process_buffer_();
   void clear_buffer_();
@@ -29,6 +33,13 @@ class HLKLD2402 : public esphome::PollingComponent, public esphome::uart::UARTDe
   size_t buffer_pos_{0};
   uint32_t last_read_time_{0};
   
- protected:
-  esphome::sensor::Sensor distance_sensor_;
+  // Configuration parameters
+  float max_distance_{10.0}; // Default 10 meters
+  uint32_t timeout_{5000};   // Default 5 seconds in ms
+  
+  // Sensors
+  sensor::Sensor *distance_sensor_{nullptr};
 };
+
+} // namespace hlk_ld2402
+} // namespace esphome
