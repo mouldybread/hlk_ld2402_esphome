@@ -25,26 +25,72 @@ void HLKLD2402Component::setup() {
 void HLKLD2402Component::setup_engineering_mode_() {
   ESP_LOGI(TAG, "Starting delayed engineering mode setup now");
   
-  // Put the module into engineering mode
+  // Try to reset the sensor state first by attempting to exit configuration mode
+  ESP_LOGI(TAG, "Trying to exit configuration mode in case it's already active");
+  send_command_(0x00FE);
+  delay(1000);  // Give it time to process
+  
+  // Clear input buffer before starting
+  this->input_buffer_.clear();
+  
+  // Put the module into engineering mode with multiple attempts
   ESP_LOGI(TAG, "Enabling engineering mode...");
-  if (enable_configuration_()) {
+  
+  bool config_enabled = false;
+  for (int attempt = 1; attempt <= 3 && !config_enabled; attempt++) {
+    ESP_LOGI(TAG, "Configuration mode attempt %d/3...", attempt);
+    
+    // Try clearing any pending data
+    while (uart::UARTDevice::available()) {
+      uart::UARTDevice::read();
+    }
+    
+    config_enabled = enable_configuration_();
+    if (config_enabled) {
+      break;
+    }
+    delay(1000);  // Wait before next attempt
+  }
+  
+  if (config_enabled) {
     ESP_LOGI(TAG, "Configuration mode enabled");
     delay(500);  // Increased delay between commands
     
-    if (set_engineering_mode_()) {
+    bool eng_mode_set = false;
+    for (int attempt = 1; attempt <= 3 && !eng_mode_set; attempt++) {
+      ESP_LOGI(TAG, "Setting engineering mode attempt %d/3...", attempt);
+      eng_mode_set = set_engineering_mode_();
+      if (eng_mode_set) {
+        break;
+      }
+      delay(1000);
+    }
+    
+    if (eng_mode_set) {
       ESP_LOGI(TAG, "Engineering mode set successfully");
     } else {
-      ESP_LOGE(TAG, "Failed to set engineering mode");
+      ESP_LOGE(TAG, "Failed to set engineering mode after multiple attempts");
     }
     
     delay(500);  // Increased delay between commands
-    if (exit_configuration_()) {
+    
+    bool config_exited = false;
+    for (int attempt = 1; attempt <= 3 && !config_exited; attempt++) {
+      ESP_LOGI(TAG, "Exiting configuration mode attempt %d/3...", attempt);
+      config_exited = exit_configuration_();
+      if (config_exited) {
+        break;
+      }
+      delay(1000);
+    }
+    
+    if (config_exited) {
       ESP_LOGI(TAG, "Exited configuration mode");
     } else {
-      ESP_LOGE(TAG, "Failed to exit configuration mode");
+      ESP_LOGE(TAG, "Failed to exit configuration mode after multiple attempts");
     }
   } else {
-    ESP_LOGE(TAG, "Failed to enable configuration mode");
+    ESP_LOGE(TAG, "Failed to enable configuration mode after multiple attempts");
   }
   
   ESP_LOGI(TAG, "Engineering mode setup complete");
@@ -441,12 +487,84 @@ bool HLKLD2402Component::read_ack_(uint16_t command) {
 
 bool HLKLD2402Component::enable_configuration_() {
   ESP_LOGD(TAG, "Sending enable_configuration command 0x00FF");
+  
   // Command: 0x00FF with parameter 0x0001
   uint8_t data[2] = {0x01, 0x00};  // Little-endian: 0x0001
+  
+  // Log raw bytes being sent for debugging
+  ESP_LOGD(TAG, "Enable config data: [%02X %02X]", data[0], data[1]);
+  
   send_command_(0x00FF, data, 2);
-  bool result = read_ack_(0x00FF);
-  ESP_LOGD(TAG, "enable_configuration command result: %s", result ? "success" : "failed");
-  return result;
+  
+  // Modified ACK handling
+  std::vector<uint8_t> ack_bytes;
+  uint32_t start_time = millis();
+  
+  // Wait for at least 8 bytes (full ACK response)
+  while (ack_bytes.size() < 8) {
+    if (millis() - start_time > this->timeout_) {
+      ESP_LOGW(TAG, "ACK timeout waiting for bytes");
+      // Dump whatever we received
+      if (!ack_bytes.empty()) {
+        ESP_LOGW(TAG, "Partial ACK received (%d bytes):", ack_bytes.size());
+        for (size_t i = 0; i < ack_bytes.size(); i++) {
+          ESP_LOGW(TAG, "  Byte %d: 0x%02X", i, ack_bytes[i]);
+        }
+      }
+      return false;
+    }
+    
+    // Read any available bytes from UART
+    while (uart::UARTDevice::available()) {
+      uint8_t byte = uart::UARTDevice::read();
+      ack_bytes.push_back(byte);
+      ESP_LOGV(TAG, "ACK byte received: 0x%02X", byte);
+    }
+    
+    if (ack_bytes.size() < 8) {
+      delay(5);  // Small delay to prevent busy-waiting
+    }
+  }
+  
+  // Check response format
+  if (ack_bytes.size() >= 8) {
+    ESP_LOGD(TAG, "ACK header: 0x%02X 0x%02X 0x%02X 0x%02X", 
+             ack_bytes[0], ack_bytes[1], ack_bytes[2], ack_bytes[3]);
+    ESP_LOGD(TAG, "Command bytes: 0x%02X 0x%02X", ack_bytes[4], ack_bytes[5]);
+    ESP_LOGD(TAG, "Status bytes: 0x%02X 0x%02X", ack_bytes[6], ack_bytes[7]);
+    
+    uint16_t received_command = (ack_bytes[5] << 8) | ack_bytes[4];
+    uint16_t ack_status = (ack_bytes[7] << 8) | ack_bytes[6];
+    
+    // Allow command 0x0008 or 0x01FF as valid responses
+    bool valid_command = (received_command == (0x00FF | 0x0100)) || (received_command == 0x0008);
+    
+    if (ack_bytes[0] != 0xFD || ack_bytes[1] != 0xFC || 
+        ack_bytes[2] != 0xFB || ack_bytes[3] != 0xFA) {
+      ESP_LOGW(TAG, "Invalid ACK header");
+      return false;
+    }
+
+    if (!valid_command) {
+      ESP_LOGW(TAG, "Invalid ACK command: expected 0x01FF or 0x0008, got 0x%04X", received_command);
+      return false;
+    }
+    
+    if (ack_status != 0x0000) {
+      ESP_LOGW(TAG, "Command 0x00FF failed, ACK status: 0x%04X", ack_status);
+      return false;
+    }
+    
+    // Consider 0x0008 a successful response
+    if (received_command == 0x0008) {
+      ESP_LOGI(TAG, "Received alternative ACK command 0x0008 - accepted");
+    }
+    
+    ESP_LOGD(TAG, "Command 0x00FF successful");
+    return true;
+  }
+  
+  return false;
 }
 
 bool HLKLD2402Component::set_engineering_mode_() {
