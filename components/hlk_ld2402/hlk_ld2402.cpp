@@ -18,8 +18,8 @@ void HLKLD2402Component::setup() {
   // Schedule the engineering mode setup after a delay
   ESP_LOGI(TAG, "Will enable engineering mode after 30 seconds delay...");
   
-  // We'll use a delayed setup approach
-  set_timeout("engineering_mode_setup", 30000, [this]() {
+  // We'll use a delayed setup approach - using the global set_timeout, not the member function
+  esphome::set_timeout("engineering_mode_setup", 30000, [this]() {
     this->setup_engineering_mode_();
   });
   
