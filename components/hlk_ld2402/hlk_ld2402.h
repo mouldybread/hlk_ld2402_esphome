@@ -42,13 +42,13 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
 
  protected:
   // Buffer handling
-  void process_buffer_();
   void clear_buffer_();
   
   // Binary frame processing
   bool process_binary_frame_(uint8_t byte);
   void handle_binary_frame_();
   void reset_binary_frame_();
+  void process_text_buffer_();
   
   // Engineering mode commands
   void send_command_(uint16_t command, const uint8_t *data = nullptr, size_t data_len = 0);
