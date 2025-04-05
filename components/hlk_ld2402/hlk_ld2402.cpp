@@ -35,6 +35,9 @@ void HLKLD2402Component::setup() {
   } else {
     ESP_LOGE(TAG, "Failed to enable configuration mode");
   }
+
+  // Initialize last_frame_received_time_
+  this->last_frame_received_time_ = millis();
 }
 
 void HLKLD2402Component::dump_config() {
@@ -331,8 +334,6 @@ bool HLKLD2402Component::read_ack_(uint16_t command) {
     while (this->input_buffer_.empty()) {
       if (millis() - start_time > this->timeout_) {
         ESP_LOGW(TAG, "ACK timeout waiting for byte %d", i + 1);
-        // Clear the input buffer to avoid getting stuck
-        this->input_buffer_.clear();
         return false;
       }
       delay(1);  // Small delay to prevent busy-waiting

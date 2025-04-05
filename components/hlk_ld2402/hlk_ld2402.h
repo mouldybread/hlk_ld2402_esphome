@@ -36,6 +36,7 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   void set_distance_sensor(HlkLd2402DistanceSensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_presence_sensor(HlkLd2402PresenceSensor *presence_sensor) { presence_sensor_ = presence_sensor; }
   void set_distance_update_interval(uint32_t distance_update_interval) { distance_update_interval_ = distance_update_interval; }
+  void set_timeout(uint32_t timeout) { timeout_ = timeout; }
 
   int my_available();
   int my_read();
@@ -92,6 +93,8 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
 
   // Input buffer
   std::vector<uint8_t> input_buffer_;
+
+  static const uint16_t ACK_COMMAND_OFFSET = 0x0100;
 };
 
 } // namespace hlk_ld2402
