@@ -119,7 +119,6 @@ void HLKLD2402Component::loop() {
   }
   
   // Check if it's time to publish an update
-  uint32_t now = millis();
   if (now - this->last_publish_time_ >= this->distance_update_interval_) {
     // Publish distance update if available
     if (this->has_new_data_ && this->distance_sensor_ != nullptr) {
