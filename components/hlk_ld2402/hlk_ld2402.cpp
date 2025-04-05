@@ -44,8 +44,6 @@ void HLKLD2402Component::dump_config() {
   this->check_uart_settings(115200);
 }
 
-// Remove the available() and read() implementations
-
 int HLKLD2402Component::my_available() {
   return this->input_buffer_.size();
 }
@@ -66,7 +64,7 @@ void HLKLD2402Component::loop() {
     this->input_buffer_.push_back(byte);
   }
   
-  // Check if there are new bytes available in the UART
+  // Process all bytes in the input buffer
   while (my_available()) {
     uint8_t byte = my_read();
     
@@ -88,15 +86,10 @@ void HLKLD2402Component::loop() {
       // If we see a newline, process the buffer
       if (byte == '\n' || byte == '\r') {
         buffer_[buffer_pos_] = '\0';  // Null-terminate
-        process_buffer_();
+        process_text_buffer_();
         clear_buffer_();
       }
     }
-  }
-  
-  // Clear buffer if it's been too long since the last read
-  if (buffer_pos_ > 0 && millis() - last_read_time_ > 1000) {
-    clear_buffer_();
   }
   
   // Check if it's time to publish an update
@@ -242,7 +235,7 @@ void HLKLD2402Component::reset_binary_frame_() {
   expected_frame_length_ = 0;
 }
 
-void HLKLD2402Component::process_buffer_() {
+void HLKLD2402Component::process_text_buffer_() {
   // Convert buffer to string for easier processing
   std::string line(buffer_);
   
@@ -274,7 +267,7 @@ void HLKLD2402Component::process_buffer_() {
     float distance = atof(line.c_str() + 9); // +9 to skip "distance:"
     
     // Check if distance is within max range
-    if (distance > 0 && distance <= this->max_distance_ * 100) { 
+    if (distance > 0 && distance <= this->max_distance_ * 100) {
       // Store the distance value (in cm) for later publishing
       this->last_distance_ = distance;
       this->has_new_data_ = true;
