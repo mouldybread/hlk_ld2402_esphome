@@ -13,12 +13,27 @@ void HLKLD2402Component::setup() {
   
   // Initialize presence update flag to ensure first reading gets published
   this->has_presence_update_ = true;
+  this->last_frame_received_time_ = millis();
   
-  // Put the module into engineering mode on startup
+  // Schedule the engineering mode setup after a delay
+  ESP_LOGI(TAG, "Will enable engineering mode after 30 seconds delay...");
+  
+  // We'll use a delayed setup approach
+  set_timeout("engineering_mode_setup", 30000, [this]() {
+    this->setup_engineering_mode_();
+  });
+  
+  ESP_LOGI(TAG, "HLK-LD2402 initial setup complete, waiting for engineering mode setup");
+}
+
+void HLKLD2402Component::setup_engineering_mode_() {
+  ESP_LOGI(TAG, "Starting delayed engineering mode setup now");
+  
+  // Put the module into engineering mode
   ESP_LOGI(TAG, "Enabling engineering mode...");
   if (enable_configuration_()) {
     ESP_LOGI(TAG, "Configuration mode enabled");
-    delay(100);  // Small delay between commands
+    delay(500);  // Increased delay between commands
     
     if (set_engineering_mode_()) {
       ESP_LOGI(TAG, "Engineering mode set successfully");
@@ -26,7 +41,7 @@ void HLKLD2402Component::setup() {
       ESP_LOGE(TAG, "Failed to set engineering mode");
     }
     
-    delay(100);  // Small delay between commands
+    delay(500);  // Increased delay between commands
     if (exit_configuration_()) {
       ESP_LOGI(TAG, "Exited configuration mode");
     } else {
@@ -35,10 +50,8 @@ void HLKLD2402Component::setup() {
   } else {
     ESP_LOGE(TAG, "Failed to enable configuration mode");
   }
-
-  // Initialize last_frame_received_time_
-  this->last_frame_received_time_ = millis();
-  ESP_LOGI(TAG, "HLK-LD2402 setup complete");
+  
+  ESP_LOGI(TAG, "Engineering mode setup complete");
 }
 
 void HLKLD2402Component::dump_config() {
@@ -77,6 +90,10 @@ void HLKLD2402Component::loop() {
   while (uart::UARTDevice::available()) {
     uint8_t byte = uart::UARTDevice::read();
     this->input_buffer_.push_back(byte);
+    
+    // Log every byte in hex format to see what we're receiving
+    ESP_LOGV(TAG, "Read byte: 0x%02X", byte);
+    
     bytes_read++;
   }
   
@@ -92,6 +109,7 @@ void HLKLD2402Component::loop() {
     
     // Try to process as binary frame first
     if (process_binary_frame_(byte)) {
+      ESP_LOGV(TAG, "Byte 0x%02X processed as part of binary frame", byte);
       continue;  // Byte was consumed by binary frame processing
     }
     
@@ -150,15 +168,22 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
   static const uint8_t FRAME_HEADER[4] = {0xF4, 0xF3, 0xF2, 0xF1};
   // Frame footer is F8 F7 F6 F5
   static const uint8_t FRAME_FOOTER[4] = {0xF8, 0xF7, 0xF6, 0xF5};
+
+  // Debug current state of binary frame processing
+  ESP_LOGV(TAG, "Binary frame state: in_frame=%d, pos=%d, header_pos=%d, byte=0x%02X", 
+          in_binary_frame_, binary_buffer_pos_, frame_header_pos_, byte);
   
   // Looking for frame header
   if (!in_binary_frame_) {
     if (byte == FRAME_HEADER[frame_header_pos_]) {
       binary_buffer_[frame_header_pos_] = byte;
       frame_header_pos_++;
+      if (frame_header_pos_ == 1) {
+        ESP_LOGV(TAG, "Potential binary frame start: 0x%02X", byte);
+      }
       if (frame_header_pos_ == 4) {
         // Header found, start collecting frame data
-        ESP_LOGI(TAG, "Binary frame header detected");
+        ESP_LOGI(TAG, "Binary frame header detected: F4 F3 F2 F1");
         in_binary_frame_ = true;
         binary_buffer_pos_ = 4;  // Start after header
         frame_header_pos_ = 0;  // Reset for future headers
@@ -167,8 +192,8 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
     } else {
       // Reset header detection if sequence breaks
       if (frame_header_pos_ > 0) {
-        ESP_LOGV(TAG, "Frame header sequence broken at position %d, got byte 0x%02X", 
-                frame_header_pos_, byte);
+        ESP_LOGV(TAG, "Frame header sequence broken at position %d, expected 0x%02X but got 0x%02X", 
+                frame_header_pos_, FRAME_HEADER[frame_header_pos_], byte);
         frame_header_pos_ = 0;
       }
       return false;
@@ -189,7 +214,7 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
     // After getting header + 2 bytes for length, check expected frame length
     if (binary_buffer_pos_ == 6) {
       expected_frame_length_ = binary_buffer_[4] | (binary_buffer_[5] << 8);
-      ESP_LOGV(TAG, "Expected binary frame length: %d", expected_frame_length_);
+      ESP_LOGD(TAG, "Expected binary frame length: %d", expected_frame_length_);
       
       // Sanity check on frame length
       if (expected_frame_length_ > MAX_BINARY_BUFFER_SIZE - 8) {  // Header (4) + Length (2) + Footer (4) = 10
@@ -198,14 +223,26 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
         return false;
       }
     }
+
+    // If we have status byte (position 6), log it
+    if (binary_buffer_pos_ == 7) {
+      ESP_LOGD(TAG, "Frame status byte: 0x%02X", binary_buffer_[6]);
+    }
     
     // Check for complete frame (header + length field + data + footer)
+    if (binary_buffer_pos_ >= 6 + expected_frame_length_) {
+      // Just got the last data byte, look for footer now
+      ESP_LOGD(TAG, "Received all data bytes, looking for footer");
+    }
+    
     if (binary_buffer_pos_ >= 6 + expected_frame_length_ + 4) {
       // Check footer
       bool valid_footer = true;
       for (int i = 0; i < 4; i++) {
         if (binary_buffer_[binary_buffer_pos_ - 4 + i] != FRAME_FOOTER[i]) {
           valid_footer = false;
+          ESP_LOGW(TAG, "Footer byte %d mismatch: expected 0x%02X, got 0x%02X", 
+                  i, FRAME_FOOTER[i], binary_buffer_[binary_buffer_pos_ - 4 + i]);
           break;
         }
       }
@@ -261,6 +298,7 @@ void HLKLD2402Component::handle_binary_frame_() {
 }
 
 void HLKLD2402Component::reset_binary_frame_() {
+  ESP_LOGV(TAG, "Resetting binary frame state");
   in_binary_frame_ = false;
   binary_buffer_pos_ = 0;
   frame_header_pos_ = 0;
@@ -411,11 +449,17 @@ bool HLKLD2402Component::enable_configuration_() {
 
 bool HLKLD2402Component::set_engineering_mode_() {
   ESP_LOGD(TAG, "Sending set_engineering_mode command 0x0012");
-  // Command: 0x0012 with parameter 0x00000004
+  
+  // According to the documentation, engineering mode parameter is 0x00000004
   uint8_t data[6] = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00};  // Little-endian: 0x00000004
+  
+  // Log the actual bytes being sent
+  ESP_LOGD(TAG, "Engineering mode data: [%02X %02X %02X %02X %02X %02X]",
+           data[0], data[1], data[2], data[3], data[4], data[5]);
+  
   send_command_(0x0012, data, 6);
   bool result = read_ack_(0x0012);
-  ESP_LOGD(TAG, "set_engineering_mode command result: %s", result ? "success" : "failed");
+  ESP_LOGI(TAG, "set_engineering_mode command result: %s", result ? "success" : "failed");
   return result;
 }
 

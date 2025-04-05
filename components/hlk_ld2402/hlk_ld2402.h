@@ -58,6 +58,12 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   bool exit_configuration_();
   bool read_ack_(uint16_t command); // Add this line
 
+  // Delayed engineering mode setup
+  void setup_engineering_mode_();
+  
+  // Debugging helper
+  void debug_dump_bytes_(const char* label, const uint8_t* data, size_t len);
+
   // Component variables
   static const uint8_t MAX_BUFFER_SIZE = 64;
   char buffer_[MAX_BUFFER_SIZE];
