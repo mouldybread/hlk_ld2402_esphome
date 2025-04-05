@@ -83,7 +83,7 @@ void HLKLD2402Component::loop() {
     if (isprint(byte) || byte == '\n' || byte == '\r') {
       buffer_[buffer_pos_++] = byte;
       
-      // If we see a newline, process the buffer
+      // If we see a newline, process the text buffer
       if (byte == '\n' || byte == '\r') {
         buffer_[buffer_pos_] = '\0';  // Null-terminate
         process_text_buffer_();
