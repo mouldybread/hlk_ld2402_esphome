@@ -101,6 +101,11 @@ class HLKLD2402Component : public Component, public uart::UARTDevice {
   std::vector<uint8_t> input_buffer_;
 
   static const uint16_t ACK_COMMAND_OFFSET = 0x0100;
+
+  // Engineering mode setup timing
+  bool engineering_mode_setup_complete_{false};
+  uint32_t engineering_mode_setup_start_time_{0};
+  static const uint32_t ENGINEERING_MODE_SETUP_DELAY = 30000; // 30 seconds
 };
 
 } // namespace hlk_ld2402

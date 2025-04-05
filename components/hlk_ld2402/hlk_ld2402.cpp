@@ -10,6 +10,7 @@ static const char *const TAG = "hlk_ld2402";
 void HLKLD2402Component::setup() {
   ESP_LOGI(TAG, "Setting up HLK-LD2402 component...");
   this->last_publish_time_ = millis();
+  this->engineering_mode_setup_start_time_ = millis();
   
   // Initialize presence update flag to ensure first reading gets published
   this->has_presence_update_ = true;
@@ -17,11 +18,6 @@ void HLKLD2402Component::setup() {
   
   // Schedule the engineering mode setup after a delay
   ESP_LOGI(TAG, "Will enable engineering mode after 30 seconds delay...");
-  
-  // We'll use a delayed setup approach - using the global set_timeout, not the member function
-  esphome::set_timeout("engineering_mode_setup", 30000, [this]() {
-    this->setup_engineering_mode_();
-  });
   
   ESP_LOGI(TAG, "HLK-LD2402 initial setup complete, waiting for engineering mode setup");
 }
@@ -77,6 +73,12 @@ int HLKLD2402Component::my_read() {
 void HLKLD2402Component::loop() {
   static uint32_t last_log_time = 0;
   uint32_t now = millis();
+  
+  // Check if it's time to run the engineering mode setup
+  if (!engineering_mode_setup_complete_ && (now - engineering_mode_setup_start_time_ >= ENGINEERING_MODE_SETUP_DELAY)) {
+    setup_engineering_mode_();
+    engineering_mode_setup_complete_ = true;
+  }
   
   // Periodically log UART status
   if (now - last_log_time > 5000) { // Log every 5 seconds
