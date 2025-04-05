@@ -8,27 +8,27 @@ namespace hlk_ld2402 {
 static const char *const TAG = "hlk_ld2402";
 
 void HLKLD2402Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up HLK-LD2402 component...");
+  ESP_LOGI(TAG, "Setting up HLK-LD2402 component...");
   this->last_publish_time_ = millis();
   
   // Initialize presence update flag to ensure first reading gets published
   this->has_presence_update_ = true;
   
   // Put the module into engineering mode on startup
-  ESP_LOGD(TAG, "Enabling engineering mode...");
+  ESP_LOGI(TAG, "Enabling engineering mode...");
   if (enable_configuration_()) {
-    ESP_LOGD(TAG, "Configuration mode enabled");
+    ESP_LOGI(TAG, "Configuration mode enabled");
     delay(100);  // Small delay between commands
     
     if (set_engineering_mode_()) {
-      ESP_LOGD(TAG, "Engineering mode set successfully");
+      ESP_LOGI(TAG, "Engineering mode set successfully");
     } else {
       ESP_LOGE(TAG, "Failed to set engineering mode");
     }
     
     delay(100);  // Small delay between commands
     if (exit_configuration_()) {
-      ESP_LOGD(TAG, "Exited configuration mode");
+      ESP_LOGI(TAG, "Exited configuration mode");
     } else {
       ESP_LOGE(TAG, "Failed to exit configuration mode");
     }
@@ -38,6 +38,7 @@ void HLKLD2402Component::setup() {
 
   // Initialize last_frame_received_time_
   this->last_frame_received_time_ = millis();
+  ESP_LOGI(TAG, "HLK-LD2402 setup complete");
 }
 
 void HLKLD2402Component::dump_config() {
@@ -61,15 +62,33 @@ int HLKLD2402Component::my_read() {
 }
 
 void HLKLD2402Component::loop() {
+  static uint32_t last_log_time = 0;
+  uint32_t now = millis();
+  
+  // Periodically log UART status
+  if (now - last_log_time > 5000) { // Log every 5 seconds
+    ESP_LOGD(TAG, "Loop running, UART available: %d, Buffer size: %d", 
+             uart::UARTDevice::available(), this->input_buffer_.size());
+    last_log_time = now;
+  }
+  
   // Read all available bytes from UART into the input buffer
+  int bytes_read = 0;
   while (uart::UARTDevice::available()) {
     uint8_t byte = uart::UARTDevice::read();
     this->input_buffer_.push_back(byte);
+    bytes_read++;
+  }
+  
+  if (bytes_read > 0) {
+    ESP_LOGD(TAG, "Read %d bytes from UART", bytes_read);
   }
   
   // Process all bytes in the input buffer
+  int bytes_processed = 0;
   while (my_available()) {
     uint8_t byte = my_read();
+    bytes_processed++;
     
     // Try to process as binary frame first
     if (process_binary_frame_(byte)) {
@@ -93,6 +112,10 @@ void HLKLD2402Component::loop() {
         clear_buffer_();
       }
     }
+  }
+  
+  if (bytes_processed > 0) {
+    ESP_LOGD(TAG, "Processed %d bytes from buffer", bytes_processed);
   }
   
   // Check if it's time to publish an update
@@ -136,6 +159,7 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
       frame_header_pos_++;
       if (frame_header_pos_ == 4) {
         // Header found, start collecting frame data
+        ESP_LOGI(TAG, "Binary frame header detected");
         in_binary_frame_ = true;
         binary_buffer_pos_ = 4;  // Start after header
         frame_header_pos_ = 0;  // Reset for future headers
@@ -143,7 +167,11 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
       return true;
     } else {
       // Reset header detection if sequence breaks
-      frame_header_pos_ = 0;
+      if (frame_header_pos_ > 0) {
+        ESP_LOGV(TAG, "Frame header sequence broken at position %d, got byte 0x%02X", 
+                frame_header_pos_, byte);
+        frame_header_pos_ = 0;
+      }
       return false;
     }
   }
@@ -184,7 +212,7 @@ bool HLKLD2402Component::process_binary_frame_(uint8_t byte) {
       }
       
       if (valid_footer) {
-        ESP_LOGV(TAG, "Valid binary frame received, length: %d", binary_buffer_pos_);
+        ESP_LOGI(TAG, "Valid binary frame received, length: %d", binary_buffer_pos_);
         handle_binary_frame_();
       } else {
         ESP_LOGW(TAG, "Invalid footer in binary frame");
@@ -220,14 +248,16 @@ void HLKLD2402Component::handle_binary_frame_() {
   this->has_presence_update_ = true;
   this->last_frame_received_time_ = millis();
   
-  ESP_LOGD(TAG, "Presence status: %s, status byte: %d", 
-          presence ? "present" : "not present", status);
+  ESP_LOGI(TAG, "Presence status: %s, status byte: %d, distance: %d cm", 
+          presence ? "present" : "not present", status, distance);
   
   // Optionally update distance from binary frame too
   float distance_cm = static_cast<float>(distance);
   if (distance > 0 && distance_cm <= this->max_distance_ * 100) {
-    ESP_LOGV(TAG, "Binary frame distance: %.1f cm", distance_cm);
-    // We could update this->last_distance_ here, but we already get text updates
+    ESP_LOGI(TAG, "Binary frame distance: %.1f cm", distance_cm);
+    // Update the distance value - previously we weren't doing this
+    this->last_distance_ = distance_cm;
+    this->has_new_data_ = true;
   }
 }
 
@@ -371,23 +401,32 @@ bool HLKLD2402Component::read_ack_(uint16_t command) {
 }
 
 bool HLKLD2402Component::enable_configuration_() {
+  ESP_LOGD(TAG, "Sending enable_configuration command 0x00FF");
   // Command: 0x00FF with parameter 0x0001
   uint8_t data[2] = {0x01, 0x00};  // Little-endian: 0x0001
   send_command_(0x00FF, data, 2);
-  return read_ack_(0x00FF);
+  bool result = read_ack_(0x00FF);
+  ESP_LOGD(TAG, "enable_configuration command result: %s", result ? "success" : "failed");
+  return result;
 }
 
 bool HLKLD2402Component::set_engineering_mode_() {
+  ESP_LOGD(TAG, "Sending set_engineering_mode command 0x0012");
   // Command: 0x0012 with parameter 0x00000004
   uint8_t data[6] = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00};  // Little-endian: 0x00000004
   send_command_(0x0012, data, 6);
-  return read_ack_(0x0012);
+  bool result = read_ack_(0x0012);
+  ESP_LOGD(TAG, "set_engineering_mode command result: %s", result ? "success" : "failed");
+  return result;
 }
 
 bool HLKLD2402Component::exit_configuration_() {
+  ESP_LOGD(TAG, "Sending exit_configuration command 0x00FE");
   // Command: 0x00FE with no parameters
   send_command_(0x00FE);
-  return read_ack_(0x00FE);
+  bool result = read_ack_(0x00FE);
+  ESP_LOGD(TAG, "exit_configuration command result: %s", result ? "success" : "failed");
+  return result;
 }
 
 } // namespace hlk_ld2402
